@@ -1,0 +1,195 @@
+{
+  "time": "2026-08-22T18:51:41+08:00",
+  "set": "scripts/data/golden-set-v2.json",
+  "model": "lc/LongCat-2.0",
+  "samples": 20,
+  "passed": 20,
+  "pass_rate": 1.0,
+  "in_tokens": 621,
+  "out_tokens": 14002,
+  "total_tokens": 14623,
+  "token_efficiency": 731.15,
+  "baseline": null,
+  "rows": [
+    {
+      "id": "qa-01",
+      "task_type": "qa",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 13,
+      "out_tokens": 54,
+      "response_len": 9
+    },
+    {
+      "id": "qa-02",
+      "task_type": "qa",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 19,
+      "out_tokens": 57,
+      "response_len": 17
+    },
+    {
+      "id": "qa-03",
+      "task_type": "qa",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 42,
+      "out_tokens": 328,
+      "response_len": 143
+    },
+    {
+      "id": "qa-04",
+      "task_type": "qa",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 27,
+      "out_tokens": 2048,
+      "response_len": 1912
+    },
+    {
+      "id": "code-01",
+      "task_type": "code",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 25,
+      "out_tokens": 416,
+      "response_len": 324
+    },
+    {
+      "id": "code-02",
+      "task_type": "code",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 30,
+      "out_tokens": 290,
+      "response_len": 95
+    },
+    {
+      "id": "code-03",
+      "task_type": "code",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 29,
+      "out_tokens": 1543,
+      "response_len": 1571
+    },
+    {
+      "id": "code-04",
+      "task_type": "code",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 25,
+      "out_tokens": 717,
+      "response_len": 1285
+    },
+    {
+      "id": "text-01",
+      "task_type": "long-text",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 40,
+      "out_tokens": 417,
+      "response_len": 66
+    },
+    {
+      "id": "text-02",
+      "task_type": "long-text",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 58,
+      "out_tokens": 450,
+      "response_len": 61
+    },
+    {
+      "id": "text-03",
+      "task_type": "long-text",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 26,
+      "out_tokens": 2048,
+      "response_len": 1583
+    },
+    {
+      "id": "ext-01",
+      "task_type": "extraction",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 33,
+      "out_tokens": 155,
+      "response_len": 10
+    },
+    {
+      "id": "ext-02",
+      "task_type": "extraction",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 40,
+      "out_tokens": 263,
+      "response_len": 57
+    },
+    {
+      "id": "ext-03",
+      "task_type": "extraction",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 33,
+      "out_tokens": 510,
+      "response_len": 216
+    },
+    {
+      "id": "ext-04",
+      "task_type": "extraction",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 58,
+      "out_tokens": 413,
+      "response_len": 59
+    },
+    {
+      "id": "tool-01",
+      "task_type": "tool-use",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 21,
+      "out_tokens": 223,
+      "response_len": 212
+    },
+    {
+      "id": "tool-02",
+      "task_type": "tool-use",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 17,
+      "out_tokens": 263,
+      "response_len": 222
+    },
+    {
+      "id": "tool-03",
+      "task_type": "tool-use",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 30,
+      "out_tokens": 1626,
+      "response_len": 1490
+    },
+    {
+      "id": "tool-04",
+      "task_type": "tool-use",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 21,
+      "out_tokens": 1516,
+      "response_len": 2440
+    },
+    {
+      "id": "tool-05",
+      "task_type": "tool-use",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 34,
+      "out_tokens": 665,
+      "response_len": 39
+    }
+  ]
+}

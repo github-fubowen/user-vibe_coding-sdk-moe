@@ -1,0 +1,195 @@
+{
+  "time": "2026-08-22T18:03:43+08:00",
+  "set": "scripts/data/golden-set-v1.json",
+  "model": "lc/LongCat-2.0",
+  "samples": 20,
+  "passed": 18,
+  "pass_rate": 0.9,
+  "in_tokens": 621,
+  "out_tokens": 14553,
+  "total_tokens": 15174,
+  "token_efficiency": 843.0,
+  "baseline": null,
+  "rows": [
+    {
+      "id": "qa-01",
+      "task_type": "qa",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 13,
+      "out_tokens": 97,
+      "response_len": 9
+    },
+    {
+      "id": "qa-02",
+      "task_type": "qa",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 19,
+      "out_tokens": 56,
+      "response_len": 17
+    },
+    {
+      "id": "qa-03",
+      "task_type": "qa",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 42,
+      "out_tokens": 335,
+      "response_len": 143
+    },
+    {
+      "id": "qa-04",
+      "task_type": "qa",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 27,
+      "out_tokens": 2048,
+      "response_len": 1692
+    },
+    {
+      "id": "code-01",
+      "task_type": "code",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 25,
+      "out_tokens": 767,
+      "response_len": 574
+    },
+    {
+      "id": "code-02",
+      "task_type": "code",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 30,
+      "out_tokens": 325,
+      "response_len": 95
+    },
+    {
+      "id": "code-03",
+      "task_type": "code",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 29,
+      "out_tokens": 1476,
+      "response_len": 1429
+    },
+    {
+      "id": "code-04",
+      "task_type": "code",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 25,
+      "out_tokens": 1760,
+      "response_len": 1880
+    },
+    {
+      "id": "text-01",
+      "task_type": "long-text",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 40,
+      "out_tokens": 391,
+      "response_len": 63
+    },
+    {
+      "id": "text-02",
+      "task_type": "long-text",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 58,
+      "out_tokens": 434,
+      "response_len": 65
+    },
+    {
+      "id": "text-03",
+      "task_type": "long-text",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 26,
+      "out_tokens": 2048,
+      "response_len": 1536
+    },
+    {
+      "id": "ext-01",
+      "task_type": "extraction",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 33,
+      "out_tokens": 170,
+      "response_len": 10
+    },
+    {
+      "id": "ext-02",
+      "task_type": "extraction",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 40,
+      "out_tokens": 114,
+      "response_len": 36
+    },
+    {
+      "id": "ext-03",
+      "task_type": "extraction",
+      "ok": false,
+      "detail": "regex not matched: \\{\\s*\"model\"[^}]*\"temperature\"[^}]*\"thinking\"",
+      "in_tokens": 33,
+      "out_tokens": 163,
+      "response_len": 70
+    },
+    {
+      "id": "ext-04",
+      "task_type": "extraction",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 58,
+      "out_tokens": 151,
+      "response_len": 59
+    },
+    {
+      "id": "tool-01",
+      "task_type": "tool-use",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 21,
+      "out_tokens": 1188,
+      "response_len": 878
+    },
+    {
+      "id": "tool-02",
+      "task_type": "tool-use",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 17,
+      "out_tokens": 308,
+      "response_len": 359
+    },
+    {
+      "id": "tool-03",
+      "task_type": "tool-use",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 30,
+      "out_tokens": 1456,
+      "response_len": 1121
+    },
+    {
+      "id": "tool-04",
+      "task_type": "tool-use",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 21,
+      "out_tokens": 553,
+      "response_len": 1051
+    },
+    {
+      "id": "tool-05",
+      "task_type": "tool-use",
+      "ok": false,
+      "detail": "contains not matched: 确认",
+      "in_tokens": 34,
+      "out_tokens": 713,
+      "response_len": 44
+    }
+  ]
+}

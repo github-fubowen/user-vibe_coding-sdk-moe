@@ -1,0 +1,165 @@
+{
+  "schema": 1,
+  "last_check": "2026-08-18T18:13:34+08:00",
+  "local_tools": {
+    "open-code-review (ocr)": {
+      "cmd": [
+        "ocr",
+        "--version"
+      ],
+      "note": "Review 模式行级审查"
+    },
+    "graphify": {
+      "cmd": [
+        "graphify",
+        "--version"
+      ],
+      "note": "代码图谱 MCP/CLI"
+    },
+    "code-review-graph": {
+      "cmd": [
+        "uv",
+        "tool",
+        "list"
+      ],
+      "grep": "code-review-graph",
+      "note": "uv tool list 确认 v2.3.7（含 crg-daemon）"
+    },
+    "specify (spec-kit)": {
+      "cmd": [
+        "uv",
+        "tool",
+        "run",
+        "--from",
+        "specify-cli",
+        "specify",
+        "--version"
+      ],
+      "note": "SDD 流水线"
+    },
+    "cli-hub (CLI-Anything)": {
+      "cmd": [
+        "cli-hub",
+        "--version"
+      ],
+      "note": "指针引用，未本地安装（缺属正常）"
+    },
+    "strix": {
+      "cmd": [
+        "strix",
+        "--version"
+      ],
+      "note": "指针引用，未本地安装（缺属正常）"
+    },
+    "context7 (ctx7)": {
+      "cmd": [
+        "ctx7",
+        "--version"
+      ],
+      "note": "npx ctx7@latest 运行，未本地安装（缺属正常）；ref-16"
+    }
+  },
+  "refs": {
+    "08-spec-kit": {
+      "repo": "github/spec-kit",
+      "branch": "main",
+      "check": "both",
+      "recorded": {
+        "release": "v0.16.4",
+        "head": "13344409786a29f631c24ee49e9f307e7b588465",
+        "stars": 129969,
+        "pushed_at": "2026-08-17T23:32:16Z",
+        "head_date": "2026-08-17T23:32:12Z"
+      }
+    },
+    "09-cli-anything": {
+      "repo": "HKUDS/CLI-Anything",
+      "branch": "main",
+      "check": "head",
+      "recorded": {
+        "head": "6f372d36f8ea43dd2af23fda96646c8088ac7d2f",
+        "stars": 47744,
+        "pushed_at": "2026-08-13T04:30:15Z",
+        "head_date": "2026-08-13T04:30:13Z"
+      }
+    },
+    "10-ars-codex": {
+      "repo": "Imbad0202/academic-research-skills-codex",
+      "branch": "main",
+      "check": "head",
+      "recorded": {
+        "head": "d5e66fb0d9e4a5bc44f26e9a619fa0e4455ba79c",
+        "stars": 8790,
+        "pushed_at": "2026-08-18T09:58:52Z",
+        "head_date": "2026-08-18T09:57:39Z"
+      }
+    },
+    "11-ui-ux-pro-max": {
+      "repo": "nextlevelbuilder/ui-ux-pro-max-skill",
+      "branch": "main",
+      "check": "head",
+      "recorded": {
+        "head": "a38d04c3d5c298c851dbe5e6ee1965ee3de42cb5",
+        "stars": 117788,
+        "pushed_at": "2026-08-13T17:10:11Z",
+        "head_date": "2026-08-13T17:08:23Z"
+      }
+    },
+    "12-public-apis": {
+      "repo": "public-apis/public-apis",
+      "branch": "master",
+      "check": "head",
+      "recorded": {
+        "head": "28458cf5393339be7f8d07ba4806b0bfe6992dc7",
+        "stars": 463553,
+        "pushed_at": "2026-08-17T21:04:12Z",
+        "head_date": "2026-08-17T21:04:12Z"
+      },
+      "data": {
+        "path": "~/.workbuddy/skills/public-apis/data/README.md",
+        "sha256": "874dd7e28c0d568f2a89996847e9b0d77449cedf0b3c04e13a5ecba88622d651",
+        "raw_url_template": "https://raw.githubusercontent.com/public-apis/public-apis/{head}/README.md",
+        "provenance": "~/.workbuddy/skills/public-apis/data/PROVENANCE.md"
+      }
+    },
+    "13-strix": {
+      "repo": "usestrix/strix",
+      "branch": "main",
+      "check": "both",
+      "recorded": {
+        "release": "v1.5.3",
+        "head": "8ede419dccf6742aa0e0c4fe3e7faf11c471ff9a",
+        "stars": 54739,
+        "pushed_at": "2026-08-17T20:55:28Z",
+        "head_date": "2026-08-17T20:55:27Z"
+      }
+    },
+    "14-cybersecurity-skills": {
+      "repo": "mukul975/Anthropic-Cybersecurity-Skills",
+      "branch": "main",
+      "check": "head",
+      "recorded": {
+        "head": "4c0b700ac5d280ba46695062077f0fe922ce3602",
+        "stars": 28740,
+        "pushed_at": "2026-08-08T14:55:19Z",
+        "head_date": "2026-08-08T14:55:19Z"
+      },
+      "vendored": {
+        "dir": "~/.workbuddy/skills/cybersecurity-skills",
+        "note": "49MB 全量库；漂移时输出手动更新配方，不自动替换"
+      }
+    },
+    "16-context7": {
+      "repo": "upstash/context7",
+      "branch": "master",
+      "check": "both",
+      "recorded": {
+        "release": "@upstash/context7-mcp@4.0.2",
+        "head": "f3a818d69db694e24d58e3bf803454fb20fc66ea",
+        "stars": 60910,
+        "pushed_at": "2026-08-18T07:24:03Z",
+        "head_date": "2026-08-17T12:16:22Z"
+      }
+    }
+  }
+}
