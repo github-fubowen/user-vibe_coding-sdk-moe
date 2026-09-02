@@ -3,6 +3,34 @@
 > 版本历史集中于此文件（G2 渐进披露：按需加载，不进 SKILL.md 热路径）。
 > SKILL.md 保持静态前缀以维持 prompt cache 命中（G5）。最新版本见本文件顶部。
 
+## v2.10.6（2026-09-02）
+
+> P3 缓办项清偿批次（用户「Please continue」批量授权）：verification-kernel B.6、
+> agentic-cicd §15、coding-agent-os §29 三项「部分吸收」升级为「吸收」。
+> 同轮完成 origin 裸备份新 main 血统推送（force-with-lease 持锁，旧血统已在裸库内
+> 扁平 ref 归档，非破坏性）。
+
+### 新增
+
+- **vk B.6 → 吸收（`ci-fail-analyze.py`）**：新增 `--results-json` 入参——从测试结果 JSON
+  （`{results|cases|rows}` 或裸列表）提取 per-test 结构化字段（`test_name / expected /
+  actual`）注入 diagnostic.v1（`per_test` + `per_test_summary` + `failing_tests`）；
+  畸形输入沿 F-53 纪律干净 exit 2 不裸 traceback。新增 2 用例。
+- **cicd §15 → 吸收（`patch-gate.py` / `action-gate.py`）**：硬闸参数策略版本钉——
+  两闸新增 `POLICY_VERSION = "gate-policy.v1"` 常量 + `--policy-version` 校验
+  （不匹配 → fail-closed exit 2），JSON/文本输出均声明 policy_version。
+  变更预算/风险分级 = 变策略 = 必须显式 bump 常量并记录于本文件。新增 2 用例。
+- **coding-agent-os §29 → 吸收（`golden-run.py`）**：`--compare <old.json>,<new.json>`
+  跨版本对比报告（schema `golden-compare.v1`）——按样本 id 逐条转移
+  （REGRESSION / FIXED / STABLE / CHRONIC / NEW / REMOVED）+ 逐条 token/latency delta +
+  pass_rate delta（pp）；检出任一 REGRESSION → exit 2（可直接作发布闸）。
+  纯文件对比，零 LLM 零网络；`--set` 在 compare 模式下不再必填。新增 2 用例。
+
+### 同步
+
+- README / ENGINEERING 用例计数 184 → 190；ALIGNMENT 三行状态升级
+  （vk B.6 / cicd §15 / coding-agent-os §29 → 吸收）。
+
 ## v2.10.5（2026-09-02）
 
 > 本版由第 6 轮全面自检驱动（触发：用户指定 SDK_Reference 参照目录（D 盘 data 下，不写入路径））。

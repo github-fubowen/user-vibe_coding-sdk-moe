@@ -36,9 +36,11 @@ Usage:
   python golden-run.py --set golden-set-v3.json --json
   python golden-run.py --set golden-set.json --llm-url "$OMNIROUTE_URL" --model auto
   python golden-run.py --set golden-set.json --baseline baseline.json --json   # A/B diff
+  python golden-run.py --compare run-v2104.json,run-v2105.json                 # §29 cross-version
   python golden-run.py --set v3.json --model auto --record scripts/data/router-stats.db \
       --level 0 --price-per-1k 0.002
-Exit codes: 0 = pass rate 100% / 2 = any sample failed or baseline regression >2%.
+Exit codes: 0 = pass rate 100% / 2 = any sample failed, baseline regression >2%,
+or (--compare mode) at least one per-sample REGRESSION.
 """
 from __future__ import annotations
 
@@ -273,9 +275,66 @@ def validate_set(samples: list[dict]) -> tuple[bool, list[str]]:
     return (len(problems) == 0, problems)
 
 
+def compare_reports(old: dict, new: dict) -> dict:
+    """§29 (P3 清偿 v2.10.6): cross-version golden comparison report.
+
+    Operates purely on two RECORDED report JSONs (the `rows` lists) — zero LLM,
+    zero network. Rows are matched by sample id; every sample lands in exactly
+    one transition:
+      REGRESSION pass->fail · FIXED fail->pass · STABLE pass->pass ·
+      CHRONIC fail->fail · NEW only-in-new · REMOVED only-in-old
+    Token/latency deltas are reported per matched row (old->new).
+    """
+    def rows_by_id(rep: dict) -> dict:
+        out: dict[str, dict] = {}
+        for r in (rep.get("rows") or []):
+            if isinstance(r, dict) and r.get("id") is not None:
+                out[str(r["id"])] = r
+        return out
+
+    om, nm = rows_by_id(old), rows_by_id(new)
+    counts = {"REGRESSION": 0, "FIXED": 0, "STABLE": 0, "CHRONIC": 0,
+              "NEW": 0, "REMOVED": 0}
+    entries: list[dict] = []
+    for sid, nr in nm.items():
+        orow = om.get(sid)
+        n_ok = bool(nr.get("ok"))
+        if orow is None:
+            tr = "NEW"
+        else:
+            o_ok = bool(orow.get("ok"))
+            tr = ("STABLE" if (n_ok and o_ok) else
+                  "REGRESSION" if (not n_ok and o_ok) else
+                  "FIXED" if (n_ok and not o_ok) else "CHRONIC")
+        counts[tr] += 1
+        e = {"id": sid, "transition": tr, "ok": n_ok,
+             "detail": str(nr.get("detail") or "")[:120]}
+        if orow is not None:
+            tok_n = int(nr.get("in_tokens", 0)) + int(nr.get("out_tokens", 0))
+            tok_o = int(orow.get("in_tokens", 0)) + int(orow.get("out_tokens", 0))
+            e["token_delta"] = tok_n - tok_o
+            e["latency_delta_ms"] = int(nr.get("latency_ms", 0)) - int(orow.get("latency_ms", 0))
+        if tr == "REGRESSION":
+            e["old_detail"] = str(orow.get("detail") or "")[:120]
+        entries.append(e)
+    for sid in sorted(om.keys() - nm.keys()):
+        counts["REMOVED"] += 1
+        entries.append({"id": sid, "transition": "REMOVED", "ok": None, "detail": ""})
+    orate, nrate = float(old.get("pass_rate") or 0.0), float(new.get("pass_rate") or 0.0)
+    return {"schema": "golden-compare.v1", "time": now_iso(),
+            "old_pass_rate": orate, "new_pass_rate": nrate,
+            "pass_rate_delta_pp": round((nrate - orate) * 100, 2),
+            "old_model": old.get("model"), "new_model": new.get("model"),
+            "samples": {"old": len(om), "new": len(nm)},
+            "transitions": counts, "entries": entries}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Golden-set regression in one command (ref-05)")
-    ap.add_argument("--set", required=True, help="golden-set JSON path")
+    ap.add_argument("--set", default=None, help="golden-set JSON path")
+    ap.add_argument("--compare", default=None,
+                    help="cross-version compare of two recorded reports (§29): "
+                         '"<old-report.json>,<new-report.json>" — no LLM, exit 2 on REGRESSION')
     ap.add_argument("--llm-url", default=os.environ.get("OMNIROUTE_URL", ""),
                     help="OpenAI-compatible base URL (default: $OMNIROUTE_URL env)")
     ap.add_argument("--model", default="auto", help="model id")
@@ -297,6 +356,37 @@ def main() -> int:
                     help="output tokens below this on a failed call = empty response (infra, not capability)")
     ap.add_argument("--json", action="store_true", help="machine-readable JSON to stdout")
     args = ap.parse_args()
+
+    if args.compare:  # §29：纯文件对比模式，不跑样本、不要求 --set
+        try:
+            old_s, new_s = args.compare.split(",", 1)
+        except ValueError:
+            print('[fatal] --compare format: "<old-report.json>,<new-report.json>"',
+                  file=sys.stderr)
+            return 2
+        old_rep, new_rep = load_json(Path(old_s)), load_json(Path(new_s))
+        cmp_rep = compare_reports(old_rep, new_rep)
+        if args.json:
+            print(json.dumps(cmp_rep, ensure_ascii=False, indent=2))
+        else:
+            print(f"== golden cross-version compare "
+                  f"({cmp_rep['old_model']} -> {cmp_rep['new_model']}) ==")
+            for e in cmp_rep["entries"]:
+                if e["transition"] in ("REGRESSION", "FIXED", "REMOVED"):
+                    print(f"  {e['transition']:<10} {e['id']:<14} {e['detail']}")
+            t = cmp_rep["transitions"]
+            print(f"\nsummary: regressions={t['REGRESSION']} fixed={t['FIXED']} "
+                  f"stable={t['STABLE']} chronic={t['CHRONIC']} new={t['NEW']} "
+                  f"removed={t['REMOVED']}")
+            print(f"pass_rate: {cmp_rep['old_pass_rate']:.1%} -> "
+                  f"{cmp_rep['new_pass_rate']:.1%} "
+                  f"(delta {cmp_rep['pass_rate_delta_pp']:+.2f}pp)")
+        return 2 if cmp_rep["transitions"]["REGRESSION"] else 0
+
+    if not args.set:
+        print("[fatal] --set is required (or use --compare old.json,new.json)",
+              file=sys.stderr)
+        return 2
 
     gs = load_json(Path(args.set))
     samples = gs.get("samples", [])

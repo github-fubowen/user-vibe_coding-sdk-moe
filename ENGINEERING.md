@@ -49,7 +49,7 @@ SDK 的全部工程资产分为三类（硬约束，任何新增都先归类）�
 
 | 脚本 | 职责 | 关键契约 |
 |---|---|---|
-| `robustness-suite.py` | 鲁棒性回归套件 | **184 用例**（v2.10.5：+1 patch-gate 畸形 numstat 拦截（F-53）；v2.10.4：+2 mutation-audit 自身用例；v2.10.3：+2 拦截覆盖补测（review-prefilter/toolstack-pipeline）+1 token-meter 预算闸+install-hooks 拒绝路径+1 无 --budget 计量不受影响；v2.10.2：+2 sdk_tools 差集、+1 不完整树不 traceback；v2.10.1：+2 自有脚本/stem 匹配、+2 git-push tier-4、+1 bump-version --json 契约、+2 selfcheck-static；v2.10.0：+4 patch-gate、+2 repair_confidence、+4 action-gate、+3 幂等键、+3 升级包、+1 F-41 docs 闸；v2.9.0 曾 +21），exit 0/2；`--only` 子集；`--timing` 慢点画像；`--quick` 跳过两个慢脚本（182s→81s）；夹具全临时目录 |
+| `robustness-suite.py` | 鲁棒性回归套件 | **190 用例**（v2.10.6：+2 ci-fail-analyze per-test（B.6）+2 策略版本钉（§15）+2 golden 跨版本对比（§29）；v2.10.5：+1 patch-gate 畸形 numstat 拦截（F-53）；v2.10.4：+2 mutation-audit 自身用例；v2.10.3：+2 拦截覆盖补测（review-prefilter/toolstack-pipeline）+1 token-meter 预算闸+install-hooks 拒绝路径+1 无 --budget 计量不受影响；v2.10.2：+2 sdk_tools 差集、+1 不完整树不 traceback；v2.10.1：+2 自有脚本/stem 匹配、+2 git-push tier-4、+1 bump-version --json 契约、+2 selfcheck-static；v2.10.0：+4 patch-gate、+2 repair_confidence、+4 action-gate、+3 幂等键、+3 升级包、+1 F-41 docs 闸；v2.9.0 曾 +21），exit 0/2；`--only` 子集；`--timing` 慢点画像；`--quick` 跳过两个慢脚本（182s→81s）；夹具全临时目录 |
 | `git-pre-commit.py` | 提交前门禁 | 改 SDK 脚本→robustness `--only`；数据文件→JSON+golden validate；**新文件或文档（v2.10.0 F-41）→privacy**；**任何 SDK 改动（v2.10.2 闸 4）→selfcheck-static（未登记脚本即拒）**；**fail-closed**；sanitize_env 弹出 PYTHONPATH + 5 个 git 内部变量 |
 | `install-hooks.py` | 钩子安装/卸载 | 幂等；SDK_RELPATH 安装时推导（改名跟随，C0-2）；外来钩子需 --force |
 | `ci-smoke.py` | 定时冒烟 | 单命令跑 **version-check（第 0 步，cheapest-first）** + **selfcheck-static（第 1 步，v2.10.1）** + robustness 全量 + golden v2/v3 validate + v3 离线 + privacy；零 LLM 离线；`--json` 时进度行走 stderr（F-45） |

@@ -425,6 +425,32 @@ def build_cases(tmp: Path, only: str | None = None) -> list[dict]:
     # F-53 fixture：畸形 numstat（列序颠倒 → 非数字列），必须干净 exit 2 而非裸 traceback
     (tmp / "p2-numstat-malformed.txt").write_text(
         "src/a.py\t3\t120\n1\t10\tok.py\n", encoding="utf-8")
+    # v2.10.6 fixtures（P3 清偿）：vk B.6 per-test / cicd §15 策略钉 / §29 跨版本对比
+    (tmp / "p6-cifail.log").write_text(
+        "pytest: 1 failed, 2 passed in 0.5s\nFAILED test_x.py::test_alpha\n", encoding="utf-8")
+    (tmp / "p6-cifail-results.json").write_text(json.dumps({
+        "results": [{"name": "case-alpha", "ok": False, "expected": ["ok"], "exit": 2},
+                    {"name": "case-beta", "ok": True, "exit": 0}]}, ensure_ascii=False),
+        encoding="utf-8")
+    (tmp / "p6-cifail-results-bad.json").write_text('{"results": [ {"name": "x", ', encoding="utf-8")
+    (tmp / "p6-golden-old.json").write_text(json.dumps({
+        "model": "model-a", "pass_rate": 2 / 3,
+        "rows": [{"id": "qa-01", "ok": True, "in_tokens": 10, "out_tokens": 5,
+                  "latency_ms": 100, "detail": "ok"},
+                 {"id": "qa-02", "ok": False, "in_tokens": 10, "out_tokens": 5,
+                  "latency_ms": 100, "detail": "regex not matched"},
+                 {"id": "qa-03", "ok": True, "in_tokens": 10, "out_tokens": 5,
+                  "latency_ms": 100, "detail": "ok"}]}, ensure_ascii=False),
+        encoding="utf-8")
+    (tmp / "p6-golden-new.json").write_text(json.dumps({
+        "model": "model-b", "pass_rate": 2 / 3,
+        "rows": [{"id": "qa-01", "ok": False, "in_tokens": 12, "out_tokens": 5,
+                  "latency_ms": 150, "detail": "regex not matched: x"},
+                 {"id": "qa-02", "ok": True, "in_tokens": 10, "out_tokens": 4,
+                  "latency_ms": 90, "detail": "all accept rules matched"},
+                 {"id": "qa-03", "ok": True, "in_tokens": 10, "out_tokens": 5,
+                  "latency_ms": 100, "detail": "ok"}]}, ensure_ascii=False),
+        encoding="utf-8")
     _task("t-idem", "PLAN")
     _task("t-esc", "VERIFY")
     # T-09 新故障类日志
@@ -966,6 +992,26 @@ def build_cases(tmp: Path, only: str | None = None) -> list[dict]:
         C("patch-gate: 畸形 numstat 行 → exit2 非 traceback", "patch-gate.py",
           ["--numstat-file", tmp / "p2-numstat-malformed.txt", "--json"], 2,
           want=("malformed numstat line",)),
+        # --- v2.10.6: P3 清偿 — vk B.6 per-test / cicd §15 策略钉 / §29 跨版本对比 ---
+        C("ci-fail-analyze: per-test 字段注入（vk B.6）", "ci-fail-analyze.py",
+          ["--log", tmp / "p6-cifail.log", "--results-json", tmp / "p6-cifail-results.json",
+           "--json"], 0,
+          want=('"per_test"', '"test_name": "case-alpha"', '"failing_tests"')),
+        C("ci-fail-analyze: results JSON 畸形 → exit2 非 traceback", "ci-fail-analyze.py",
+          ["--log", tmp / "p6-cifail.log", "--results-json", tmp / "p6-cifail-results-bad.json"],
+          2, want=("[fatal]", "results-json")),
+        C("patch-gate: 策略版本钉不匹配 → exit2（cicd §15）", "patch-gate.py",
+          ["--stat", "3,10", "--policy-version", "gate-policy.v0", "--json"], 2,
+          want=("policy version mismatch",)),
+        C("action-gate: 策略版本钉不匹配 → exit2（cicd §15）", "action-gate.py",
+          ["--tool", "diff-risk", "--policy-version", "gate-policy.v0", "--json"], 2,
+          want=("policy version mismatch",)),
+        C("golden-run: 跨版本对比检出回归 → exit2（§29）", "golden-run.py",
+          ["--compare", str(tmp / "p6-golden-old.json") + "," + str(tmp / "p6-golden-new.json")],
+          2, want=("REGRESSION", "regressions=1", "fixed=1")),
+        C("golden-run: 跨版本对比无回归 → exit0（§29）", "golden-run.py",
+          ["--compare", str(tmp / "p6-golden-old.json") + "," + str(tmp / "p6-golden-old.json")],
+          0, want=("regressions=0",)),
         # --- v2.10.0: T-23b diff-risk repair_confidence 合成（B.21）---
         C("diff-risk: repair_confidence 合成（vc=0.9 低风险）", "diff-risk.py",
           ["--files", "docs/x.md", "--lines", "5", "--verify-confidence", "0.9", "--json"], 0,

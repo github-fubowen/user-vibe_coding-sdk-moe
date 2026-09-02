@@ -37,6 +37,11 @@ from pathlib import Path
 
 SCHEMA = "patch-gate.v1"
 
+# cicd §15（P3 清偿 v2.10.6）：硬闸参数策略版本钉。预算参数（files/lines/deps）是
+# 策略面而非实现细节 —— 变更默认预算 = 变策略 = 必须显式 bump 本常量并在 CHANGELOG
+# 记录。调用方可传 --policy-version 校验自己钉住的版本（不匹配 → fail-closed exit 2）。
+POLICY_VERSION = "gate-policy.v1"
+
 # 依赖清单文件（T-23：dependency changes 预算的判定面）
 DEP_MANIFEST_RE = re.compile(
     r"(^|/)(requirements[\w.-]*\.txt|pyproject\.toml|uv\.lock|poetry\.lock"
@@ -97,7 +102,7 @@ def gate(files: list[str], changed_lines: int, max_files: int, max_lines: int,
     if len(dep_files) > max_deps:
         exceeded.append(f"dependency manifests {len(dep_files)} > {max_deps}: {dep_files}")
     return {
-        "schema": SCHEMA, "time": now_iso(),
+        "schema": SCHEMA, "time": now_iso(), "policy_version": POLICY_VERSION,
         "files": len(files), "changed_lines": changed_lines,
         "dep_manifests": dep_files,
         "budget": {"max_files": max_files, "max_lines": max_lines, "max_dep_changes": max_deps},
@@ -119,8 +124,17 @@ def main() -> int:
     ap.add_argument("--max-files", type=int, default=5)
     ap.add_argument("--max-lines", type=int, default=300)
     ap.add_argument("--max-deps", type=int, default=1)
+    ap.add_argument("--policy-version", default=None,
+                    help="caller-pinned gate policy version (cicd §15); mismatch → exit 2")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
+
+    if args.policy_version and args.policy_version != POLICY_VERSION:  # §15 策略版本钉
+        print(f"[fatal] policy version mismatch: caller pinned {args.policy_version!r}, "
+              f"gate enforces {POLICY_VERSION!r} — budget params are policy, bump the "
+              f"POLICY_VERSION constant (with CHANGELOG) if the change is intended",
+              file=sys.stderr)
+        return 2
 
     files: list[str] = []
     changed = 0
@@ -169,7 +183,7 @@ def _emit(rep: dict, args) -> None:
     else:
         mark = "OK " if rep["ok"] else "!! "
         print(f"== patch-gate: {mark}files={rep['files']} lines={rep['changed_lines']} "
-              f"deps={len(rep['dep_manifests'])} ==")
+              f"deps={len(rep['dep_manifests'])} policy={rep['policy_version']} ==")
         for e in rep["exceeded"]:
             print(f"  [exceeded] {e}", file=sys.stderr)
         print(f"  budget: {rep['budget']}")

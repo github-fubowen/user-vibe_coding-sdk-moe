@@ -37,6 +37,7 @@ Design rules (SDK §3/G-gates, §10.9):
 Usage:
   python ci-fail-analyze.py --log actions-failure.log
   python ci-fail-analyze.py --log actions-failure.log --git-dir . --json
+  python ci-fail-analyze.py --log f.log --results-json results.json --json  # vk B.6 per-test
   python ci-fail-analyze.py --log missing.log      # exit 2: not found
 Exit codes: 0 = diagnostic emitted / 2 = error.
 """
@@ -181,10 +182,48 @@ def affected_files(git_dir: str | None) -> list[str]:
         return []
 
 
+def per_test_results(path_str: str | None) -> tuple[list[dict], dict]:
+    """vk B.6 (P3 清偿 v2.10.6): per-test structured fields from a test-results JSON.
+
+    Accepts {"results": [...]} / {"cases": [...]} / {"rows": [...]} / a bare list;
+    entries with ok/passed=False become per-test records {test_name, expected, actual}.
+    Robustness discipline (F-53 pattern): malformed input raises, and main()
+    turns it into a clean [fatal] + exit 2 — never a raw traceback.
+    """
+    if not path_str:
+        return [], {"failed": 0, "total": 0}
+    data = json.loads(Path(path_str).read_text(encoding="utf-8", errors="replace"))
+    if isinstance(data, dict):
+        entries = next((data[k] for k in ("results", "cases", "rows")
+                        if isinstance(data.get(k), list)), [])
+    elif isinstance(data, list):
+        entries = data
+    else:
+        entries = []
+    failed: list[dict] = []
+    for e in entries:
+        if not isinstance(e, dict):
+            continue
+        if e.get("ok", e.get("passed", True)):
+            continue
+        exp, act = e.get("expected"), e.get("actual", e.get("exit"))
+        if isinstance(exp, (list, dict)):
+            exp = json.dumps(exp, ensure_ascii=False)
+        if isinstance(act, (list, dict)):
+            act = json.dumps(act, ensure_ascii=False)
+        failed.append({"test_name": str(e.get("name") or e.get("id") or e.get("test") or "?"),
+                       "expected": str(exp) if exp is not None else None,
+                       "actual": str(act) if act is not None else None})
+    return failed, {"failed": len(failed), "total": len(entries)}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="CI failure log analyzer (GH 方案 §11)")
     ap.add_argument("--log", required=True, help="Actions failure log file path")
     ap.add_argument("--git-dir", default=None, help="repo dir for git diff affected_files")
+    ap.add_argument("--results-json", default=None,
+                    help="test-results JSON ({results|cases|rows} or list) — attach per-test "
+                         "fields to the diagnostic (vk B.6)")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
@@ -201,6 +240,16 @@ def main() -> int:
     diag = analyze(text)
     diag.update({"schema": SCHEMA, "affected_files": affected_files(args.git_dir),
                  "source_log": str(log_path)})
+    if args.results_json:  # vk B.6：per-test 结构化字段（畸形输入干净 exit 2，非 traceback）
+        try:
+            failed, summary = per_test_results(args.results_json)
+        except Exception as e:
+            print(f"[fatal] --results-json unreadable: {type(e).__name__}: {e}", file=sys.stderr)
+            return 2
+        diag["per_test"] = failed[:50]
+        diag["per_test_summary"] = summary
+        if failed:
+            diag["failing_tests"] = [t["test_name"] for t in failed[:10]]
     if args.json:
         print(json.dumps(diag, ensure_ascii=False, indent=2))
     else:
@@ -211,6 +260,8 @@ def main() -> int:
         print(f"  repair:     {diag['repair_strategy']}")
         if diag["affected_files"]:
             print(f"  files:      {', '.join(diag['affected_files'][:10])}")
+        if diag.get("failing_tests"):
+            print(f"  failing:    {'; '.join(diag['failing_tests'][:5])}")
     return 0
 
 

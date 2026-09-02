@@ -98,7 +98,7 @@
 | B.3 | 12 阶段渐进验证（cheapest-first 短路） | 已吸收 70% | verify-runner 分层 + T-16 version-check 置 ci-smoke 第 0 步；Stage 6/7/8（module/integration/e2e）分层留 preset 自定义 |
 | B.4 | Test Discovery（adapter 模型） | 排除 | 3 套随包预设即降级替代 |
 | B.5 | 测试选择（changed→受影响测试） | **吸收（T-22）** | `verify-runner --changed` 约定映射；覆盖率驱动排除（见上表） |
-| B.6 | 结构化验证事件 | 部分 | diagnostic.v1 有 step/exit_code/error_class/origin；per-test 字段（test_name/expected/actual）留 P3 |
+| B.6 | 结构化验证事件 | **吸收（v2.10.6）** | ci-fail-analyze `--results-json` 注入 per-test 字段（test_name/expected/actual + per_test_summary/failing_tests）；畸形输入干净 exit 2 |
 | B.7 + H | 失败分类 + origin class | **吸收（T-19）** | ci-fail-analyze `origin` + ACTION_BY_ORIGIN |
 | B.10 | Flaky 检测 + quarantine | **吸收（T-20）** | flaky-check.py（N≥5 + 变率门槛；隔离不删除） |
 | B.11 | 回归测试双向校验 | **吸收（T-21）** | regression-guard.py（base FAIL + head PASS） |
@@ -117,10 +117,10 @@
 | §1 原则 6 | 修复有界 | **已吸收（v2.10.0 补齐）** | ref-22 次数/振荡 + patch-gate 规模预算（T-23）+ repair_confidence<0.7 人工（B.21） |
 | §1 原则 9 | 幂等性 | **吸收（T-26，v2.10.0）** | task-state `--idempotency-key`（重放 no-op 不耗预算）+ action-gate 消费 idempotent 元数据 |
 | §8.3/8.4 | TIA + flaky 四分类 | **吸收（T-22/T-20）** | 见上表 |
-| §15 | 策略引擎 + 策略版本化 | 部分 | preset 带 schema 版本；硬闸参数钉版本留 P3 |
+| §15 | 策略引擎 + 策略版本化 | **吸收（v2.10.6）** | patch-gate / action-gate `POLICY_VERSION=gate-policy.v1` + `--policy-version` 校验（不匹配 exit 2）；preset schema 版本已有 |
 | §16 | 升级包七字段 | **吸收（T-24，v2.10.0）** | `task-state escalation-pack`：attempted_fixes 聚合自事件台账；ref-22 L5 必附 |
 | §3.2 | Agent Tool Gateway | **吸收（T-25，v2.10.0）· v2.10.1 修正** | `action-gate.py` 预执行门（AgentOS Top4 清偿）：存在性/风险分级/args 校验，tier≥4 须 --user-approved。**F-42 修正**：查表范围 = `sdk_tools` ∪ `local_tools`（原仅 `local_tools`，22 个自有脚本全被误判 DENY —— 门装了但没接上电路） |
-| §29 | Golden Benchmark + 发布闸 | 部分 | golden-run `--record` 已有；跨版本对比报告留 P3 |
+| §29 | Golden Benchmark + 发布闸 | **吸收（v2.10.6）** | golden-run `--compare old,new` 跨版本对比报告（golden-compare.v1：REGRESSION/FIXED/STABLE/CHRONIC 转移 + token/latency delta；有回归 exit 2 = 发布闸）；`--record` 已有 |
 | §22-23/§26 | Postgres/NATS/Temporal/K8s/OPA | 排除 | 技能层无服务端 |
 | §12 | SLSA 产物溯源 | 排除（指针） | 与 gh-workflow-check 相邻，暂不落地 |
 

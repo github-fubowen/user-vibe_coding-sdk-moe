@@ -1,7 +1,7 @@
 ---
 name: user-vibe_coding-sdk-moe
 description: >
-  MoE-optimized coding skill SDK (v2.10.5). USE when the user starts a coding session,
+  MoE-optimized coding skill SDK (v2.10.6). USE when the user starts a coding session,
   says "start coding" / "coding mode" / "vibe coding" / "开发模式" / "写代码" /
   or asks to begin any write/debug/review/refactor task. Maximizes Mixture-of-Experts
   model output quality via MANDATORY ENGLISH COT (thinking chain), per-task thinking
@@ -10,7 +10,7 @@ description: >
   Route to the right path: Vibe / Engineering / SDD / Debug / Review / Quick-Edit.
 ---
 
-# user-vibe_coding-sdk-moe v2.10.5 — MoE-Optimized Coding SDK
+# user-vibe_coding-sdk-moe v2.10.6 — MoE-Optimized Coding SDK
 
 > **What this is**: A coding SDK tuned for MoE-family models (DeepSeek V4/Qwen3.5-Max/Kimi K2/GLM-4.6/MiniMax M2/Doubao/Hunyuan/Step).
 > **Design basis**: 5 research reports (2026-08): CN MoE architecture survey, MoE capability-maximization handbook, LLM DIY tuning handbook, LLM power-user handbook, GitHub MoE ecosystem survey.

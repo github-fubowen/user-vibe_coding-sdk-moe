@@ -39,6 +39,11 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 TOOLSTACK = SCRIPT_DIR / "toolstack.json"
 SCHEMA = "action-gate.v1"
 
+# cicd §15（P3 清偿 v2.10.6）：策略版本钉 —— 风险分级决策表是策略面。变更分级/
+# 决策规则 = 变策略 = 显式 bump 本常量 + CHANGELOG 记录。调用方可传
+# --policy-version 校验钉住的版本（不匹配 → fail-closed exit 2）。
+POLICY_VERSION = "gate-policy.v1"
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
@@ -86,13 +91,13 @@ def gate(name: str, args_json: str | None, user_approved: bool) -> dict:
     try:
         _, tools = load_tools()
     except Exception as e:  # fail-closed: 元数据读不了 = 门禁失效 = 拒绝
-        return {"schema": SCHEMA, "time": now_iso(), "tool": name,
+        return {"schema": SCHEMA, "time": now_iso(), "policy_version": POLICY_VERSION, "tool": name,
                 "decision": "DENY", "reasons": [f"toolstack unreadable: {type(e).__name__}: {e}"],
                 "risk_tier": None, "conditions": [], "human_approval": None, "args": None}
 
     key, meta = find_tool(name, tools)
     if meta is None:
-        return {"schema": SCHEMA, "time": now_iso(), "tool": name,
+        return {"schema": SCHEMA, "time": now_iso(), "policy_version": POLICY_VERSION, "tool": name,
                 "decision": "DENY",
                 "reasons": [f"tool {name!r} not in toolstack.json — probe first "
                             f"(probe-tools.py) or add it with risk_tier metadata"],
@@ -103,7 +108,7 @@ def gate(name: str, args_json: str | None, user_approved: bool) -> dict:
         try:
             parsed_args = json.loads(args_json)
         except json.JSONDecodeError as e:
-            return {"schema": SCHEMA, "time": now_iso(), "tool": name, "toolstack_key": key,
+            return {"schema": SCHEMA, "time": now_iso(), "policy_version": POLICY_VERSION, "tool": name, "toolstack_key": key,
                     "decision": "DENY", "reasons": [f"--args-json invalid: {e}"],
                     "risk_tier": meta.get("risk_tier"), "conditions": [],
                     "human_approval": None, "args": None}
@@ -132,7 +137,7 @@ def gate(name: str, args_json: str | None, user_approved: bool) -> dict:
         conditions.append("tool is NOT idempotent — retries need an idempotency key "
                           "(task-state --idempotency-key, T-26) or explicit re-authorization")
 
-    return {"schema": SCHEMA, "time": now_iso(), "tool": name, "toolstack_key": key,
+    return {"schema": SCHEMA, "time": now_iso(), "policy_version": POLICY_VERSION, "tool": name, "toolstack_key": key,
             "decision": decision, "reasons": reasons, "risk_tier": tier,
             "conditions": conditions, "human_approval": human_approval,
             "metadata": {"idempotent": meta.get("idempotent", False),
@@ -149,15 +154,24 @@ def main() -> int:
     ap.add_argument("--args-json", default=None, help="tool arguments as a JSON object (validated)")
     ap.add_argument("--user-approved", action="store_true",
                     help="tier-4 only: record explicit human approval (ask the user FIRST)")
+    ap.add_argument("--policy-version", default=None,
+                    help="caller-pinned gate policy version (cicd §15); mismatch → exit 2")
     ap.add_argument("--json", action="store_true", help="machine-readable JSON to stdout")
     args = ap.parse_args()
+
+    if args.policy_version and args.policy_version != POLICY_VERSION:  # §15 策略版本钉
+        print(f"[fatal] policy version mismatch: caller pinned {args.policy_version!r}, "
+              f"gate enforces {POLICY_VERSION!r} — risk-tier decision table is policy, "
+              f"bump the POLICY_VERSION constant (with CHANGELOG) if intended",
+              file=sys.stderr)
+        return 2
 
     rep = gate(args.tool, args.args_json, args.user_approved)
     if args.json:
         print(json.dumps(rep, ensure_ascii=False, indent=2))
     else:
         print(f"== action-gate: {rep['decision']}  {args.tool} "
-              f"(tier={rep.get('risk_tier')}) ==")
+              f"(tier={rep.get('risk_tier')}, policy={rep.get('policy_version')}) ==")
         for r in rep.get("reasons", []):
             print(f"  - {r}")
         for c in rep.get("conditions", []):
