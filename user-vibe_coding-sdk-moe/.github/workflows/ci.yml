@@ -1,0 +1,40 @@
+# ci.yml — SDK 主 CI（C2-1，T-G1）+ workflow_dispatch 控制面（C2-3，T-G3）
+# 触发：push/PR（CI 仅测试，不发版——§10 push 门禁不因 CI 配置豁免）；
+#       手动 dispatch：operation/version/agent_run_id 三输入。
+# 串接约定：dispatch 传入的 agent_run_id 应同时写入本地
+#   `task-state.py transition --to CI_QUEUED --run-id <agent_run_id>`（runs[] 记录）。
+name: sdk-ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      operation:
+        type: choice
+        description: 控制面操作
+        options:
+          - smoke
+          - golden-online
+          - full-gates
+        default: smoke
+      version:
+        type: string
+        description: 目标 SDK 版本（如 v2.6.0），随 operation=golden-online 使用
+        default: ""
+      agent_run_id:
+        type: string
+        description: 任务控制面 ID——串接 task-state.runs[].workflow_run_id
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: ./.github/reusable/python-ci.yml
+    with:
+      python-version: "3.13"
+      smoke-command: python scripts/ci-smoke.py
+      agent-run-id: ${{ inputs.agent_run_id || '' }}
+    secrets: inherit

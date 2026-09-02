@@ -1,0 +1,35 @@
+{
+  "schema": "memory.v1",
+  "layer": "conventions",
+  "note": "约定记忆（coding-agent-os §14 吸收）",
+  "entries": [
+    {
+      "id": "cv-001",
+      "rule": "git 本地 commit 默认执行；任何 push 必须显式确认（消耗云部署配额）",
+      "context": "SDK §10",
+      "source": "user standing convention",
+      "tags": ["git"]
+    },
+    {
+      "id": "cv-002",
+      "rule": "Conventional Commits：type(scope): summary，type ∈ feat/fix/refactor/docs/chore/test/perf，中文摘要，无 emoji",
+      "context": "SDK §10.4",
+      "source": "SDK",
+      "tags": ["git", "commits"]
+    },
+    {
+      "id": "cv-003",
+      "rule": "脚本一律 Python stdlib、确定性、零 LLM 调用；exit 0=ok / 2=error；--json 机器可读",
+      "context": "scripts/ 全部",
+      "source": "SDK §3/G-gates",
+      "tags": ["scripts", "conventions"]
+    },
+    {
+      "id": "cv-004",
+      "rule": "新文档不得含机器特定路径/用户名/真实密钥（privacy-scan 0 残留为提交前置）",
+      "context": "公开推送前",
+      "source": "SDK §10 / privacy-scan",
+      "tags": ["privacy"]
+    }
+  ]
+}

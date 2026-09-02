@@ -1,0 +1,19 @@
+{
+  "name": "GitHub热门项目",
+  "installedAt": 1784439960817,
+  "source": "marketplace",
+  "version": "2.0.0",
+  "skillId": "skill_2053082035554123776",
+  "examples_zh": [
+    "获取今天GitHub上最热门的项目",
+    "本周GitHub上Python最热门的仓库有哪些",
+    "本月GitHub开源项目趋势排行榜"
+  ],
+  "examples_en": [
+    "Get today's hottest GitHub repositories",
+    "Show this week's trending Python repos on GitHub",
+    "Monthly GitHub open source project rankings"
+  ],
+  "iconSource": "letter:auto",
+  "skillName": "github-trending-cn"
+}

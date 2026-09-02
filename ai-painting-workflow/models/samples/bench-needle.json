@@ -1,0 +1,24 @@
+{
+  "needle": {
+    "backend": "needle",
+    "n": 12,
+    "success_rate": 0.0,
+    "latency_ms": {
+      "avg": 5887.3,
+      "p50": 5426.7,
+      "p95": 8340.4,
+      "min": 3404.4,
+      "max": 8381.6
+    },
+    "confidence": {
+      "avg": 0.0,
+      "min": 0.0,
+      "max": 0.001
+    },
+    "agreement_pct": 0.0,
+    "rule_coverage_pct": 0.0,
+    "extra_tokens_avg": 0,
+    "rss_delta_mb": null,
+    "llm_tokens_used": 0
+  }
+}

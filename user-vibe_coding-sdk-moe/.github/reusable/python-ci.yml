@@ -1,0 +1,47 @@
+# reusable/python-ci.yml — Python CI reusable workflow (C2-2, GH 方案 §7)
+# 消费方只"选择"本工作流（SKILL §1 CI 选择行），不自行拼装 CI。
+# 安全默认：GITHUB_TOKEN read-only；不发版（CI 仅测试）。
+name: python-ci
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        type: string
+        default: "3.13"
+        description: Python 版本（匹配 SDK 环境约定）
+      workdir:
+        type: string
+        default: "."
+        description: 仓库内工作目录
+      smoke-command:
+        type: string
+        default: "python scripts/ci-smoke.py"
+        description: 冒烟命令（默认走 SDK ci-smoke 全栈）
+      agent-run-id:
+        type: string
+        default: ""
+        description: 控制面串接：workflow_dispatch 的 agent_run_id（C2-3）
+    secrets:
+      OMNIROUTE_URL:
+        required: false
+        description: 可选：在线 golden 基线用 OmniRoute URL
+permissions:
+  contents: read
+
+jobs:
+  python-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+      - name: CI smoke (deterministic, zero-LLM)
+        working-directory: ${{ inputs.workdir }}
+        run: ${{ inputs.smoke-command }}
+      - name: Record agent_run_id in job summary
+        if: inputs.agent-run-id != ''
+        run: |
+          echo "## agent_run_id" >> "$GITHUB_STEP_SUMMARY"
+          echo "${{ inputs.agent-run-id }}" >> "$GITHUB_STEP_SUMMARY"

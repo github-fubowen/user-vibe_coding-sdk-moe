@@ -1,0 +1,31 @@
+{
+  "schema": "memory.v1",
+  "layer": "preferences",
+  "note": "用户偏好记忆（coding-agent-os §14 吸收）——仅通用陈述，不含机器路径",
+  "entries": [
+    {
+      "id": "pf-001",
+      "preference": "投资/分析输出结论先行，偏好 Markdown 表格 + 风险矩阵",
+      "scope": "所有分析类输出",
+      "source": "user standing convention"
+    },
+    {
+      "id": "pf-002",
+      "preference": "软件与缓存优先安装到数据盘以节省系统盘空间",
+      "scope": "本地工具链部署",
+      "source": "user standing convention"
+    },
+    {
+      "id": "pf-003",
+      "preference": "git push 前必须先询问确认（防云部署配额消耗）",
+      "scope": "所有 git 工作流",
+      "source": "user standing convention"
+    },
+    {
+      "id": "pf-004",
+      "preference": "每模块完整测试 + md 报告 → 再进入下一阶段",
+      "scope": "工程推进节奏",
+      "source": "user standing convention"
+    }
+  ]
+}

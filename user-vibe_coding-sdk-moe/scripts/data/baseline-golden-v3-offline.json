@@ -1,0 +1,12 @@
+{
+  "set": "golden-set-v3.json",
+  "mode": "offline",
+  "pass_rate": 1.0,
+  "samples": 32,
+  "passed": 32,
+  "in_tokens": 218,
+  "out_tokens": 403,
+  "token_efficiency": 19.4,
+  "note": "golden-set v3 离线基线（结构性判分，零 LLM）——在线基线待 OmniRoute 免费池稳定后建立",
+  "archived_at": "2026-08-26"
+}

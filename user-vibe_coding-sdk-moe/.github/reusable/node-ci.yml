@@ -1,0 +1,46 @@
+# reusable/node-ci.yml — Node.js CI reusable workflow (C2-2, GH 方案 §7)
+# 同 python-ci：只选择不生成；GITHUB_TOKEN read-only；不发版。
+name: node-ci
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        type: string
+        default: "22"
+        description: Node 版本（匹配 SDK 环境约定 Node 22）
+      workdir:
+        type: string
+        default: "."
+      install-command:
+        type: string
+        default: "npm ci"
+      test-command:
+        type: string
+        default: "npm test"
+      agent-run-id:
+        type: string
+        default: ""
+permissions:
+  contents: read
+
+jobs:
+  node-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.workdir }}/package-lock.json
+      - name: Install
+        working-directory: ${{ inputs.workdir }}
+        run: ${{ inputs.install-command }}
+      - name: Test
+        working-directory: ${{ inputs.workdir }}
+        run: ${{ inputs.test-command }}
+      - name: Record agent_run_id
+        if: inputs.agent-run-id != ''
+        run: |
+          echo "## agent_run_id" >> "$GITHUB_STEP_SUMMARY"
+          echo "${{ inputs.agent-run-id }}" >> "$GITHUB_STEP_SUMMARY"

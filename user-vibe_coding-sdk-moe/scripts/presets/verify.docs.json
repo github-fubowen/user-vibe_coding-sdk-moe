@@ -1,0 +1,24 @@
+{
+  "schema": "verify-preset.v1",
+  "preset": "docs",
+  "note": "文档/内容项目阶梯：Markdown 相对链接可达性 + UTF-8 编码完整性（零依赖）。用法: python scripts/verify-runner.py --config scripts/presets/verify.docs.json --cwd . （--cwd 必填）",
+  "short_circuit": false,
+  "layers": [
+    {
+      "name": "doc-links",
+      "cmd": [
+        "python", "-c",
+        "import sys, pathlib, re\nbad = []\nfor p in pathlib.Path('.').rglob('*.md'):\n    if '.git' in p.parts:\n        continue\n    for link in re.findall(r'\\]\\(([^)]+)\\)', p.read_text(encoding='utf-8', errors='ignore')):\n        if link.startswith(('http', '#', 'mailto', '<')):\n            continue\n        target = (p.parent / link.split('#')[0])\n        if not target.exists():\n            bad.append(f'{p} -> {link}')\nprint('\\n'.join(bad))\nprint(f'links checked, {len(bad)} broken')\nsys.exit(2 if bad else 0)"
+      ],
+      "timeout": 180
+    },
+    {
+      "name": "encoding",
+      "cmd": [
+        "python", "-c",
+        "import sys, pathlib\nbad = []\nfor p in pathlib.Path('.').rglob('*.md'):\n    if '.git' in p.parts:\n        continue\n    try:\n        p.read_text(encoding='utf-8')\n    except UnicodeDecodeError:\n        bad.append(str(p))\nprint('\\n'.join(bad))\nprint(f'files checked, {len(bad)} not-utf8')\nsys.exit(2 if bad else 0)"
+      ],
+      "timeout": 120
+    }
+  ]
+}

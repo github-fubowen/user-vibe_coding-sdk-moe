@@ -1,0 +1,42 @@
+{
+  "schema": "memory.v1",
+  "layer": "repo-facts",
+  "note": "仓库事实记忆（coding-agent-os §14 吸收）——结构化匹配优先，嵌入兜底为指针",
+  "entries": [
+    {
+      "id": "rf-001",
+      "fact": "robustness-suite.py 用 sys.executable 运行被测脚本，用例为单次 subprocess 调用 + 期望 exit code + want/dont 标记",
+      "source": "scripts/robustness-suite.py",
+      "verified_at": "2026-08-26",
+      "tags": ["scripts", "testing"]
+    },
+    {
+      "id": "rf-002",
+      "fact": "bump-version.py 只 git add SKILL.md/README.md/CHANGELOG.md 三个文件，其他变更需单独提交",
+      "source": "scripts/bump-version.py",
+      "verified_at": "2026-08-26",
+      "tags": ["git", "versioning"]
+    },
+    {
+      "id": "rf-003",
+      "fact": "privacy-scan 正则含 drive-letter 模式，新文档不得出现盘符路径（用 <PLACEHOLDER> 或环境变量）",
+      "source": "scripts/privacy-scan.py",
+      "verified_at": "2026-08-26",
+      "tags": ["privacy", "conventions"]
+    },
+    {
+      "id": "rf-004",
+      "fact": "golden-run 结构性判分零 LLM-judge：accept 规则仅 regex/contains 两种",
+      "source": "scripts/golden-run.py",
+      "verified_at": "2026-08-26",
+      "tags": ["eval", "golden-set"]
+    },
+    {
+      "id": "rf-005",
+      "fact": "argparse 子命令后的选项必须定义在子 parser 上（如 router-stats --db），主 parser 定义会 unrecognized",
+      "source": "scripts/router-stats.py",
+      "verified_at": "2026-08-26",
+      "tags": ["python", "argparse", "lesson"]
+    }
+  ]
+}

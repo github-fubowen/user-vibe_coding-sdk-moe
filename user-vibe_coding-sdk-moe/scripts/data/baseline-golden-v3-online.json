@@ -1,0 +1,305 @@
+{
+  "schema": "diagnostic.v1",
+  "time": "2026-08-28T19:59:21+08:00",
+  "set": "scripts/data/golden-set-v3.json",
+  "model": "auto/best-coding",
+  "samples": 32,
+  "passed": 20,
+  "pass_rate": 0.625,
+  "in_tokens": 512,
+  "out_tokens": 31554,
+  "total_tokens": 32066,
+  "token_efficiency": 1603.3,
+  "baseline": null,
+  "recorded_outcomes": 32,
+  "rows": [
+    {
+      "id": "qa-01",
+      "task_type": "qa",
+      "ok": false,
+      "detail": "LLM call failed: HTTP 503: {\"error\":{\"message\":\"Maximum combo retry limit reached\",\"type\":\"server_error\",\"code\":\"service_unavailable\"},\"diagnostics\":{\"poolSize\":58,\"attempted\":30,\"excluded\":[],\"attemptOrder\":[{\"provider\":\"yuanbao-web\",\"model\":\"yuanbao-web/deepseek-v3\"},{\"provider\":\"theoldllm\",\"model\":\"tllm/CLAUDE_4_6_OPUS\"},{",
+      "in_tokens": 5,
+      "out_tokens": 0,
+      "response_len": 0
+    },
+    {
+      "id": "qa-02",
+      "task_type": "qa",
+      "ok": false,
+      "detail": "LLM call failed: HTTP 503: {\"error\":{\"message\":\"Maximum combo retry limit reached\",\"type\":\"server_error\",\"code\":\"service_unavailable\"},\"diagnostics\":{\"poolSize\":58,\"attempted\":29,\"excluded\":[{\"provider\":\"unknown\",\"reason\":\"exhausted_connection:chipotle\"}],\"attemptOrder\":[{\"provider\":\"theoldllm\",\"model\":\"tllm/CLAUDE_4_6_OPUS\"}",
+      "in_tokens": 7,
+      "out_tokens": 0,
+      "response_len": 0
+    },
+    {
+      "id": "qa-03",
+      "task_type": "qa",
+      "ok": false,
+      "detail": "LLM call failed: HTTP 503: {\"error\":{\"message\":\"Maximum combo retry limit reached\",\"type\":\"server_error\",\"code\":\"service_unavailable\"},\"diagnostics\":{\"poolSize\":58,\"attempted\":30,\"excluded\":[],\"attemptOrder\":[{\"provider\":\"theoldllm\",\"model\":\"tllm/CLAUDE_4_6_OPUS\"},{\"provider\":\"theoldllm\",\"model\":\"tllm/CLAUDE_4_6_SONNET\"},{\"pr",
+      "in_tokens": 10,
+      "out_tokens": 0,
+      "response_len": 0
+    },
+    {
+      "id": "qa-04",
+      "task_type": "qa",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 23,
+      "out_tokens": 1435,
+      "response_len": 956
+    },
+    {
+      "id": "code-01",
+      "task_type": "code",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 16,
+      "out_tokens": 863,
+      "response_len": 1019
+    },
+    {
+      "id": "code-02",
+      "task_type": "code",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 18,
+      "out_tokens": 542,
+      "response_len": 1005
+    },
+    {
+      "id": "code-03",
+      "task_type": "code",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 13,
+      "out_tokens": 531,
+      "response_len": 927
+    },
+    {
+      "id": "code-04",
+      "task_type": "code",
+      "ok": false,
+      "detail": "contains not matched: def quicksort",
+      "in_tokens": 12,
+      "out_tokens": 1397,
+      "response_len": 3189
+    },
+    {
+      "id": "long-01",
+      "task_type": "long-text",
+      "ok": false,
+      "detail": "contains not matched: 向量化",
+      "in_tokens": 17,
+      "out_tokens": 254,
+      "response_len": 104
+    },
+    {
+      "id": "long-02",
+      "task_type": "long-text",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 14,
+      "out_tokens": 1069,
+      "response_len": 679
+    },
+    {
+      "id": "long-03",
+      "task_type": "long-text",
+      "ok": false,
+      "detail": "contains not matched: 路由",
+      "in_tokens": 16,
+      "out_tokens": 2048,
+      "response_len": 1613
+    },
+    {
+      "id": "ext-01",
+      "task_type": "extraction",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 25,
+      "out_tokens": 48,
+      "response_len": 13
+    },
+    {
+      "id": "ext-02",
+      "task_type": "extraction",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 24,
+      "out_tokens": 42,
+      "response_len": 4
+    },
+    {
+      "id": "ext-03",
+      "task_type": "extraction",
+      "ok": false,
+      "detail": "contains not matched: thinking:true",
+      "in_tokens": 35,
+      "out_tokens": 177,
+      "response_len": 41
+    },
+    {
+      "id": "ext-04",
+      "task_type": "extraction",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 29,
+      "out_tokens": 89,
+      "response_len": 22
+    },
+    {
+      "id": "tool-01",
+      "task_type": "tool-use",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 14,
+      "out_tokens": 482,
+      "response_len": 477
+    },
+    {
+      "id": "tool-02",
+      "task_type": "tool-use",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 13,
+      "out_tokens": 436,
+      "response_len": 714
+    },
+    {
+      "id": "tool-03",
+      "task_type": "tool-use",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 14,
+      "out_tokens": 951,
+      "response_len": 736
+    },
+    {
+      "id": "tool-04",
+      "task_type": "tool-use",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 14,
+      "out_tokens": 2048,
+      "response_len": 2135
+    },
+    {
+      "id": "tool-05",
+      "task_type": "tool-use",
+      "ok": false,
+      "detail": "LLM call failed: HTTP 503: {\"error\":{\"message\":\"Maximum combo retry limit reached\",\"type\":\"server_error\",\"code\":\"service_unavailable\"},\"diagnostics\":{\"poolSize\":58,\"attempted\":27,\"excluded\":[{\"provider\":\"unknown\",\"reason\":\"exhausted_connection:longcat:\"},{\"provider\":\"unknown\",\"reason\":\"exhausted_connection:theoldll\"},{\"provid",
+      "in_tokens": 5,
+      "out_tokens": 0,
+      "response_len": 0
+    },
+    {
+      "id": "bug-01",
+      "task_type": "code",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 19,
+      "out_tokens": 974,
+      "response_len": 1579
+    },
+    {
+      "id": "bug-02",
+      "task_type": "code",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 19,
+      "out_tokens": 1370,
+      "response_len": 2927
+    },
+    {
+      "id": "bug-03",
+      "task_type": "code",
+      "ok": false,
+      "detail": "contains not matched: rootdir",
+      "in_tokens": 13,
+      "out_tokens": 1332,
+      "response_len": 2227
+    },
+    {
+      "id": "bug-04",
+      "task_type": "code",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 21,
+      "out_tokens": 1562,
+      "response_len": 2896
+    },
+    {
+      "id": "bug-05",
+      "task_type": "code",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 16,
+      "out_tokens": 1665,
+      "response_len": 1544
+    },
+    {
+      "id": "refac-01",
+      "task_type": "code",
+      "ok": false,
+      "detail": "contains not matched: @wrapper",
+      "in_tokens": 19,
+      "out_tokens": 2048,
+      "response_len": 3078
+    },
+    {
+      "id": "refac-02",
+      "task_type": "code",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 13,
+      "out_tokens": 1565,
+      "response_len": 1895
+    },
+    {
+      "id": "refac-03",
+      "task_type": "code",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 14,
+      "out_tokens": 1259,
+      "response_len": 2200
+    },
+    {
+      "id": "rev-01",
+      "task_type": "code",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 13,
+      "out_tokens": 2048,
+      "response_len": 1781
+    },
+    {
+      "id": "rev-02",
+      "task_type": "code",
+      "ok": true,
+      "detail": "all accept rules matched",
+      "in_tokens": 14,
+      "out_tokens": 2003,
+      "response_len": 1699
+    },
+    {
+      "id": "rev-03",
+      "task_type": "code",
+      "ok": false,
+      "detail": "contains not matched: 高风险",
+      "in_tokens": 13,
+      "out_tokens": 2048,
+      "response_len": 1966
+    },
+    {
+      "id": "rev-04",
+      "task_type": "code",
+      "ok": false,
+      "detail": "contains not matched: 结论先行",
+      "in_tokens": 14,
+      "out_tokens": 1268,
+      "response_len": 1321
+    }
+  ]
+}

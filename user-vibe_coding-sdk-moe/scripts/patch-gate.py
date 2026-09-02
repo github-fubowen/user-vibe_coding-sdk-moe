@@ -1,0 +1,170 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+patch-gate.py — 补丁规模预算闸（T-23 / F-29，v2.10.0）
+
+Why: verification-kernel §I 的 8 项修复预算中，SDK 只落了「次数」（max_repair_attempts=3）。
+缺规模预算 = 单次修复可以产出 20 文件 / 500 行 / 动依赖清单的超大补丁而不触任何闸
+—— diff-risk 是**评分**（>0.7 转人工建议），不是**预算闸**（硬拒绝），两者不可互替。
+
+Budgets (defaults from kernel §I, configurable):
+  max_files        单补丁触碰文件数（默认 5）
+  max_lines        单补丁变更行数 added+deleted（默认 300）
+  max_dep_changes  依赖清单文件数（requirements*/pyproject/package.json/lock…，默认 1；
+                   超限须升级 ref-22 L3+ —— 依赖变更是行为变更，不是"顺手改"）
+
+Input (any one):
+  --numstat-file <file>   `git diff --numstat` 输出（首选：added/deleted 精确）
+  --diff-file <file>      unified diff（自行统计 +/- 行与文件）
+  --stat "<files>,<added>+<deleted>"   手工声明，如 "12,340"（测试/无 git 环境）
+
+Verdict: exit 0 = 预算内；exit 2 = 超限（fail-closed），输出的 exceeded 预算与
+recommended_action=ESCALATED 供 ref-22 阶梯消费。
+
+Usage:
+  git diff --numstat > n.txt && python patch-gate.py --numstat-file n.txt --json
+  python patch-gate.py --diff-file p.patch --max-files 8
+  python patch-gate.py --stat "7,320" --json
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+SCHEMA = "patch-gate.v1"
+
+# 依赖清单文件（T-23：dependency changes 预算的判定面）
+DEP_MANIFEST_RE = re.compile(
+    r"(^|/)(requirements[\w.-]*\.txt|pyproject\.toml|uv\.lock|poetry\.lock"
+    r"|package\.json|package-lock\.json|pnpm-lock\.yaml|yarn\.lock"
+    r"|Cargo\.toml|Cargo\.lock|go\.mod|go\.sum|Pipfile.*|Gemfile.*)$", re.I)
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+
+
+def parse_numstat(text: str) -> tuple[list[str], int]:
+    files: list[str] = []
+    lines = 0
+    for ln in text.splitlines():
+        parts = ln.split("\t")
+        if len(parts) < 3:
+            continue
+        add, dele, path = parts[0].strip(), parts[1].strip(), parts[2].strip()
+        if not path or path.startswith("("):  # numstat 摘要尾行
+            continue
+        files.append(path)
+        for v in (add, dele):
+            lines += 0 if v == "-" else int(v)
+    return files, lines
+
+
+def parse_unified_diff(text: str) -> tuple[list[str], int]:
+    files: list[str] = []
+    lines = 0
+    for ln in text.splitlines():
+        if ln.startswith("+++") or ln.startswith("---") or ln.startswith("Index: "):
+            m = re.search(r"\s(\S+)$", ln)
+            if m and m.group(1) not in ("/dev/null",):
+                p = m.group(1).removeprefix("a/").removeprefix("b/")
+                if p not in files:
+                    files.append(p)
+        elif ln.startswith("+") or ln.startswith("-"):
+            lines += 1
+        elif ln.startswith("@@"):
+            lines += 1  # hunk 头计入变更噪声（保守）
+    return files, lines
+
+
+def gate(files: list[str], changed_lines: int, max_files: int, max_lines: int,
+         max_deps: int) -> dict:
+    dep_files = [f for f in files if DEP_MANIFEST_RE.search(f.replace("\\", "/"))]
+    exceeded = []
+    if len(files) > max_files:
+        exceeded.append(f"files {len(files)} > {max_files}")
+    if changed_lines > max_lines:
+        exceeded.append(f"changed lines {changed_lines} > {max_lines}")
+    if len(dep_files) > max_deps:
+        exceeded.append(f"dependency manifests {len(dep_files)} > {max_deps}: {dep_files}")
+    return {
+        "schema": SCHEMA, "time": now_iso(),
+        "files": len(files), "changed_lines": changed_lines,
+        "dep_manifests": dep_files,
+        "budget": {"max_files": max_files, "max_lines": max_lines, "max_dep_changes": max_deps},
+        "ok": not exceeded,
+        "exceeded": exceeded,
+        "recommended_action": "ESCALATED" if exceeded else None,
+        "note": ("patch exceeds budget — split the patch or escalate (ref-22 §I / L3+); "
+                 "do NOT auto-proceed" if exceeded
+                 else "patch within budget (verification-kernel §I)"),
+    }
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Patch budget gate (T-23, F-29; kernel §I)")
+    src = ap.add_mutually_exclusive_group()
+    src.add_argument("--numstat-file", default=None, help="`git diff --numstat` output file")
+    src.add_argument("--diff-file", default=None, help="unified diff file")
+    src.add_argument("--stat", default=None, help='manual "<files>,<added+deleted>" e.g. "7,320"')
+    ap.add_argument("--max-files", type=int, default=5)
+    ap.add_argument("--max-lines", type=int, default=300)
+    ap.add_argument("--max-deps", type=int, default=1)
+    ap.add_argument("--json", action="store_true")
+    args = ap.parse_args()
+
+    files: list[str] = []
+    changed = 0
+    if args.numstat_file:
+        p = Path(args.numstat_file)
+        if not p.exists():
+            print(f"[fatal] numstat file not found: {p}", file=sys.stderr)
+            return 2
+        files, changed = parse_numstat(p.read_text(encoding="utf-8", errors="replace"))
+    elif args.diff_file:
+        p = Path(args.diff_file)
+        if not p.exists():
+            print(f"[fatal] diff file not found: {p}", file=sys.stderr)
+            return 2
+        files, changed = parse_unified_diff(p.read_text(encoding="utf-8", errors="replace"))
+    elif args.stat:
+        m = re.fullmatch(r"\s*(\d+)\s*,\s*(\d+)\s*", args.stat)
+        if not m:
+            print('[fatal] --stat format: "<files>,<added+deleted>" e.g. "7,320"', file=sys.stderr)
+            return 2
+        files, changed = [], int(m.group(2))
+        rep = gate(files, changed, args.max_files, args.max_lines, args.max_deps)
+        rep["files_declared"] = int(m.group(1))
+        if rep["files_declared"] > args.max_files:
+            rep["ok"] = False
+            rep["exceeded"].append(f"files {rep['files_declared']} > {args.max_files}")
+            rep["recommended_action"] = "ESCALATED"
+        _emit(rep, args)
+        return 0 if rep["ok"] else 2
+    else:
+        print("[fatal] no diff source: use --numstat-file / --diff-file / --stat", file=sys.stderr)
+        return 2
+
+    rep = gate(files, changed, args.max_files, args.max_lines, args.max_deps)
+    _emit(rep, args)
+    return 0 if rep["ok"] else 2
+
+
+def _emit(rep: dict, args) -> None:
+    if args.json:
+        print(json.dumps(rep, ensure_ascii=False, indent=2))
+    else:
+        mark = "OK " if rep["ok"] else "!! "
+        print(f"== patch-gate: {mark}files={rep['files']} lines={rep['changed_lines']} "
+              f"deps={len(rep['dep_manifests'])} ==")
+        for e in rep["exceeded"]:
+            print(f"  [exceeded] {e}", file=sys.stderr)
+        print(f"  budget: {rep['budget']}")
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,14 @@
+{
+  "schema": "verify-preset.v1",
+  "preset": "node",
+  "note": "Node/TS 项目本地确定性阶梯。v2.9.0 T-18：test 拆为 test-targeted（--bail=1 fail-fast，轻/中档只跑它）+ test-full（全量）。用法: python scripts/verify-runner.py --config scripts/presets/verify.node.json --cwd . （--cwd 必填）",
+  "short_circuit": true,
+  "layers": [
+    { "name": "lint",      "cmd": ["npx", "--no-install", "eslint", "."],          "timeout": 240, "allow_missing": true },
+    { "name": "typecheck", "cmd": ["npx", "--no-install", "tsc", "--noEmit"],      "timeout": 300, "allow_missing": true },
+    { "name": "test-targeted", "cmd": ["npx", "--no-install", "vitest", "run", "--bail=1"], "timeout": 300, "allow_missing": true },
+    { "name": "test-full",     "cmd": ["npx", "--no-install", "vitest", "run"],    "timeout": 600, "allow_missing": true },
+    { "name": "build",     "cmd": ["npm", "run", "build"],                         "timeout": 600, "allow_missing": true },
+    { "name": "security",  "cmd": ["npm", "audit", "--audit-level=high"],          "timeout": 300, "allow_missing": true }
+  ]
+}

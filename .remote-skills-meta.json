@@ -1,0 +1,455 @@
+{
+  "skills": {
+    "persona-switch": {
+      "type": "system",
+      "version": 7,
+      "sha256": "086dfdecc4b8c803e76d77cd41be662ee14dd896178c9f07c0d48a9d50e0b56e",
+      "installed_at": "2026-06-04T00:13:00+08:00",
+      "level": "P0",
+      "icon": "",
+      "effect_scope": 1,
+      "install_mode": 1
+    },
+    "bdpan-storage": {
+      "type": "system",
+      "version": 1,
+      "sha256": "153ae3012297795c723c5a7c42060cd72d75976ed807a5d01ca5dd50d3157b49",
+      "installed_at": "2026-06-04T00:12:59+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "figma": {
+      "type": "system",
+      "version": 1,
+      "sha256": "cb404c963a96f86ce91fa35320bd06989bc270942d3512e3fc5273497315e5f9",
+      "installed_at": "2026-06-04T00:12:59+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "imap-smtp-email": {
+      "type": "system",
+      "version": 7,
+      "sha256": "d99aa7a7a251515d2759ef4086ca4663682717335583fc2e6ecdeea78e042536",
+      "installed_at": "2026-06-22T14:38:48+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "kdocs": {
+      "type": "system",
+      "version": 2,
+      "sha256": "1fff995c73b439400265b063f5475a29aed9391defc481ddbcbf2c55eae18f57",
+      "installed_at": "2026-06-22T14:38:48+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "meituan-travel": {
+      "type": "system",
+      "version": 1,
+      "sha256": "9925ae7e4942b6eb051be698040c152574355253b520496a2c90f4c932bdcc29",
+      "installed_at": "2026-06-04T00:12:59+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "mtunion-product-ai-guide": {
+      "type": "system",
+      "version": 4,
+      "sha256": "666958f164ff4857ef9c5f4cd301e60e46da923ca727569c50427c22a6ea702a",
+      "installed_at": "2026-06-22T14:38:48+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "tencent-esign-contract": {
+      "type": "system",
+      "version": 1,
+      "sha256": "848b5cf0f11362cb2ca6d1ff9fddeb6c57a3129941f57ff4d9cd11d2d11a6683",
+      "installed_at": "2026-06-04T00:13:00+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "tencent-meeting-mcp": {
+      "type": "system",
+      "version": 1,
+      "sha256": "4b5d35c8f75ff31433b606618737cedd56e853650693261c2c041747e973a099",
+      "installed_at": "2026-06-04T00:13:00+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "tencent-survey": {
+      "type": "system",
+      "version": 1,
+      "sha256": "6fc98211b76ef190bd8cf9f2d7b5c36e4560309a0f203919e0471ae9114d27ae",
+      "installed_at": "2026-06-04T00:13:00+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "wecom-weisheng-scrm": {
+      "type": "system",
+      "version": 1,
+      "sha256": "0fa70e1c42017eee6cce4c7c67426446674d1f6375416a845892509b657166e8",
+      "installed_at": "2026-06-04T00:13:00+08:00",
+      "level": "P2",
+      "icon": "https://webcdn.m.qq.com/webcdn/qclaw/skills/icons/1778225940017_wecom-weisheng-scrm.png",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "weread-skills": {
+      "type": "system",
+      "version": 1,
+      "sha256": "cb2cef9ac450af7129d11a9608ca1da96bada646fe901c734790840372583c54",
+      "installed_at": "2026-06-04T00:13:00+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "agent-email": {
+      "type": "system",
+      "version": 4,
+      "sha256": "016617f3804ee33e93919e0822341ce19796a8e08279f8cb9d7f64ca65028e84",
+      "installed_at": "2026-06-22T14:38:47+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "aippt": {
+      "type": "system",
+      "version": 13,
+      "sha256": "6d11d53f58bdcb4cce55858303b1069b9b97637131071dc24885386724d6ee36",
+      "installed_at": "2026-06-22T14:38:47+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "baidu-ai-map": {
+      "type": "system",
+      "version": 1,
+      "sha256": "1b49713a283c7bf39b5d889f0c61679a8f120aff7898cb3a5defaa22ab62da82",
+      "installed_at": "2026-06-22T14:38:47+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "fbs_bookwriter": {
+      "type": "system",
+      "version": 1,
+      "sha256": "da13f5db6eff9c0fda94adec0dab3da95c55d3959a016853202997367cdb7faa",
+      "installed_at": "2026-06-22T14:38:47+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "flyai": {
+      "type": "system",
+      "version": 1,
+      "sha256": "1ac6f603b32cd0f42211a12080c31e9f8115d80fb663ed9c00899584064daf97",
+      "installed_at": "2026-06-22T14:38:47+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "ima": {
+      "type": "system",
+      "version": 1,
+      "sha256": "5fd5d329fea4834f4451709c4f79393952d25100eab3aaa9cc6ec561040db74a",
+      "installed_at": "2026-06-22T14:38:47+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "lark-setup": {
+      "type": "system",
+      "version": 1,
+      "sha256": "28d82183e1378d24e15cdaea4b74682361e1953a0f971ebc608937978db3dfc4",
+      "installed_at": "2026-06-22T14:38:48+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "lexiang-knowledge-base": {
+      "type": "system",
+      "version": 1,
+      "sha256": "b0689e821f6eb73258bb4a579332931b45ea67af46c4d8e50f1e42bccaef33ba",
+      "installed_at": "2026-06-22T14:38:48+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "notion": {
+      "type": "system",
+      "version": 1,
+      "sha256": "98e06cc55a7432ae050601940e7e0bf76bed2545426b7062b23c19d413d6c035",
+      "installed_at": "2026-06-22T14:38:48+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "personal-mail-skill": {
+      "type": "system",
+      "version": 3,
+      "sha256": "67e411e6fe43796ae0c3221323f49a0a8759635753879c88e2cb624440de2374",
+      "installed_at": "2026-06-22T14:38:48+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "qcc-company": {
+      "type": "system",
+      "version": 2,
+      "sha256": "4b3c3e2697c3ec00c56f1f35581e844860ae83c74960719e903f28a0f91f2baa",
+      "installed_at": "2026-06-22T14:38:48+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "tencent-docs": {
+      "type": "system",
+      "version": 2,
+      "sha256": "c2fb82283221c5b2d9ef3c62d21a5cb2dc02e5de475687064af34b605df8a452",
+      "installed_at": "2026-06-22T14:38:48+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "tencent-musician-skills": {
+      "type": "system",
+      "version": 1,
+      "sha256": "7ccac45186d688f995ba92e9caa377d2df4d23c13ac05a75693b6756dbdc7779",
+      "installed_at": "2026-06-22T14:38:48+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "tencent-news": {
+      "type": "system",
+      "version": 1,
+      "sha256": "8d6f11fee0fa424f04cc9a4e67b79754200e3c5596d20aaf21a6a58d78d09e79",
+      "installed_at": "2026-06-22T14:38:48+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "tongdaxin-mcp": {
+      "type": "system",
+      "version": 2,
+      "sha256": "da77c4df7a658e30c1c9a6d193410188896ea9246efb33aabbbb7a882a4a4aee",
+      "installed_at": "2026-06-24T11:58:20+08:00",
+      "icon": "",
+      "install_mode": 1,
+      "effect_scope": 3,
+      "level": "P2"
+    },
+    "wecomcli-setup": {
+      "type": "system",
+      "version": 1,
+      "sha256": "87e3499d0ca53423959d1f98b39cc4ec92297547f15cc56b0c0dbf2bd1b67a22",
+      "installed_at": "2026-06-22T14:38:48+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "weiyun": {
+      "type": "system",
+      "version": 2,
+      "sha256": "09ef792e17e36d1eefe99610f7bcb3fd54580c1ea0158c44b4f376d50323fcbe",
+      "installed_at": "2026-06-22T14:38:48+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "wendao-partner-qclaw-skill": {
+      "type": "system",
+      "version": 1,
+      "sha256": "4beca623b4787abd3a0f82860fbff38fe9f083c2a4671a323d207224c00857da",
+      "installed_at": "2026-06-22T14:38:48+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "youdaonote": {
+      "type": "system",
+      "version": 1,
+      "sha256": "286f51b954d7870fdde9fa6ea2606a7dc0b1f1efb8e782add64bfb2b013c9865",
+      "installed_at": "2026-06-22T14:38:48+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "yuandian": {
+      "type": "system",
+      "version": 1,
+      "sha256": "a4db1292d10a15adf873ee87008cbef02e895237d63c45f949cbde368ff29ecf",
+      "installed_at": "2026-06-22T14:38:48+08:00",
+      "level": "P2",
+      "icon": "",
+      "effect_scope": 3,
+      "install_mode": 1
+    },
+    "another_them": {
+      "type": "system",
+      "version": 2,
+      "sha256": "6cab9235b00caa6125b53e67046f7431ca1b5bd564de76d88105d564e8d1334b",
+      "installed_at": "2026-06-23T10:17:17+08:00",
+      "icon": "",
+      "install_mode": 1,
+      "effect_scope": 1,
+      "level": "P0"
+    },
+    "cloud-upload-backup": {
+      "type": "system",
+      "version": 2,
+      "sha256": "4498bd7998da5537f2a79994019ceb59a6aa5ef5289c9ea003d68520e4f05484",
+      "installed_at": "2026-06-23T10:17:17+08:00",
+      "icon": "",
+      "install_mode": 1,
+      "effect_scope": 1,
+      "level": "P1"
+    },
+    "docx": {
+      "type": "system",
+      "version": 1,
+      "sha256": "bf9c69ae27eac952ff4dd9efd0d720186cb0e1fcb9ffcee7d42ab2d1a3d5ee9b",
+      "installed_at": "2026-06-23T10:17:17+08:00",
+      "icon": "",
+      "install_mode": 1,
+      "effect_scope": 1,
+      "level": "P1"
+    },
+    "email-skill": {
+      "type": "system",
+      "version": 7,
+      "sha256": "10b272b217e49dae6a283089a4cb2c637d348da90665a7be48f0e64378dce5e2",
+      "installed_at": "2026-06-23T10:17:17+08:00",
+      "icon": "",
+      "install_mode": 1,
+      "effect_scope": 1,
+      "level": "P1"
+    },
+    "find-skills": {
+      "type": "system",
+      "version": 2,
+      "sha256": "819ad4dfb35d1d69c57cda64089bcedfa6f0765e8ef8e3dcee6df92dadd19a30",
+      "installed_at": "2026-06-23T10:17:17+08:00",
+      "icon": "",
+      "install_mode": 1,
+      "effect_scope": 1,
+      "level": "P0"
+    },
+    "mcporter": {
+      "type": "system",
+      "version": 1,
+      "sha256": "8286e8078fe0c364c213c34b107373cd53c55dc09d7f340fec6aed0e64d19daa",
+      "installed_at": "2026-06-23T10:17:17+08:00",
+      "icon": "",
+      "install_mode": 1,
+      "effect_scope": 1,
+      "level": "P1"
+    },
+    "pdf": {
+      "type": "system",
+      "version": 1,
+      "sha256": "768e3412353cde595a0734df14220d301dbabd5905f75f0148015da4c07ea08b",
+      "installed_at": "2026-06-23T10:17:17+08:00",
+      "icon": "",
+      "install_mode": 1,
+      "effect_scope": 1,
+      "level": "P1"
+    },
+    "qclaw-cron-skill": {
+      "type": "system",
+      "version": 1,
+      "sha256": "ab130317a4fb014b7659fdc1f1d96787d03e3504ac714d814633200cf188afcf",
+      "installed_at": "2026-06-23T10:17:17+08:00",
+      "icon": "",
+      "install_mode": 1,
+      "effect_scope": 1,
+      "level": "P0"
+    },
+    "qclaw-env": {
+      "type": "system",
+      "version": 2,
+      "sha256": "aebf560a0460ae41874db2597123785a081c58e1240524bf74db64c7135f9576",
+      "installed_at": "2026-06-23T10:17:17+08:00",
+      "icon": "",
+      "install_mode": 1,
+      "effect_scope": 1,
+      "level": "P0"
+    },
+    "qclaw-rules": {
+      "type": "system",
+      "version": 2,
+      "sha256": "c8fca73ed9878400d59ccba29d612aaff71ccab22ecafd9cc498b44a8b1cdb1d",
+      "installed_at": "2026-06-23T10:17:17+08:00",
+      "icon": "",
+      "install_mode": 1,
+      "effect_scope": 1,
+      "level": "P0"
+    },
+    "qclaw-skill-creator": {
+      "type": "system",
+      "version": 1,
+      "sha256": "a987a916d7bc89aa72f2b4ef52559dfc95f4fb625d4cb7dc098dc612783a782a",
+      "installed_at": "2026-06-23T10:17:17+08:00",
+      "icon": "",
+      "install_mode": 1,
+      "effect_scope": 1,
+      "level": "P0"
+    },
+    "xbrowser": {
+      "type": "system",
+      "version": 1,
+      "sha256": "e2506a8bedc5e18adec40200813c6be85301d811a5f6965afbd8617a57bd82b7",
+      "installed_at": "2026-06-23T10:17:17+08:00",
+      "icon": "",
+      "install_mode": 1,
+      "effect_scope": 1,
+      "level": "P0"
+    },
+    "xlsx": {
+      "type": "system",
+      "version": 1,
+      "sha256": "3b285b45b9005bb9ad0c876f2d9ffd17bdce2615afb5be82e23b3513ef47a252",
+      "installed_at": "2026-06-23T10:17:18+08:00",
+      "icon": "",
+      "install_mode": 1,
+      "effect_scope": 1,
+      "level": "P1"
+    }
+  },
+  "last_sync": "2026-06-24T15:24:56+08:00"
+}

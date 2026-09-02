@@ -1,0 +1,480 @@
+{
+  "schema": 3,
+  "last_check": "2026-09-01T23:44:37+08:00",
+  "sdk_tools_exempt": [],
+  "local_tools": {
+    "open-code-review (ocr)": {
+      "cmd": [
+        "ocr",
+        "--version"
+      ],
+      "note": "Review 模式行级审查",
+      "risk_tier": 1,
+      "idempotent": true,
+      "timeout_ms": 30000,
+      "retryable": true,
+      "group": "review"
+    },
+    "graphify": {
+      "cmd": [
+        "graphify",
+        "--version"
+      ],
+      "note": "代码图谱 MCP/CLI",
+      "risk_tier": 1,
+      "idempotent": true,
+      "timeout_ms": 30000,
+      "retryable": true,
+      "group": "graph"
+    },
+    "code-review-graph": {
+      "cmd": [
+        "uv",
+        "tool",
+        "list"
+      ],
+      "grep": "code-review-graph",
+      "note": "uv tool list 确认 v2.3.7（含 crg-daemon）",
+      "risk_tier": 1,
+      "idempotent": true,
+      "timeout_ms": 30000,
+      "retryable": true,
+      "group": "graph"
+    },
+    "specify (spec-kit)": {
+      "cmd": [
+        "uv",
+        "tool",
+        "run",
+        "--from",
+        "specify-cli",
+        "specify",
+        "--version"
+      ],
+      "note": "SDD 流水线",
+      "risk_tier": 2,
+      "idempotent": false,
+      "timeout_ms": 120000,
+      "retryable": true,
+      "group": "sdd"
+    },
+    "cli-hub (CLI-Anything)": {
+      "cmd": [
+        "cli-hub",
+        "--version"
+      ],
+      "note": "指针引用，未本地安装（缺属正常）",
+      "risk_tier": 2,
+      "idempotent": false,
+      "timeout_ms": 60000,
+      "retryable": false,
+      "group": "install"
+    },
+    "strix": {
+      "cmd": [
+        "strix",
+        "--version"
+      ],
+      "note": "指针引用，未本地安装（缺属正常）",
+      "risk_tier": 3,
+      "idempotent": false,
+      "timeout_ms": 120000,
+      "retryable": false,
+      "group": "security"
+    },
+    "context7 (ctx7)": {
+      "cmd": [
+        "ctx7",
+        "--version"
+      ],
+      "note": "npx ctx7@latest 运行，未本地安装（缺属正常）；ref-16",
+      "risk_tier": 1,
+      "idempotent": true,
+      "timeout_ms": 60000,
+      "retryable": true,
+      "group": "docs"
+    },
+    "git-push": {
+      "cmd": [
+        "git",
+        "--version"
+      ],
+      "note": "§10 规则 2 —— push 必须显式用户确认；tier-4 结构性人工闸门（action-gate 需 --user-approved）。探测 cmd 用 `git --version`：`git push` 本身在无 upstream 的仓库里恒失败，会误报 MISSING",
+      "risk_tier": 4,
+      "idempotent": false,
+      "timeout_ms": 300000,
+      "retryable": false,
+      "group": "git"
+    }
+  },
+  "refs": {
+    "08-spec-kit": {
+      "repo": "github/spec-kit",
+      "branch": "main",
+      "check": "both",
+      "recorded": {
+        "release": "v1.0.2",
+        "head": "31e6b84f701b108a848847a8bc9ea86a1e2890b7",
+        "stars": 132606,
+        "pushed_at": "2026-08-31T22:11:23Z",
+        "head_date": "2026-08-31T22:11:13Z"
+      }
+    },
+    "09-cli-anything": {
+      "repo": "HKUDS/CLI-Anything",
+      "branch": "main",
+      "check": "head",
+      "recorded": {
+        "head": "810c18b0d1ab9b234bc996c9fd999318523a3ef0",
+        "stars": 48752,
+        "pushed_at": "2026-08-21T07:26:58Z",
+        "head_date": "2026-08-21T07:26:58Z"
+      }
+    },
+    "10-ars-codex": {
+      "repo": "Imbad0202/academic-research-skills-codex",
+      "branch": "main",
+      "check": "head",
+      "recorded": {
+        "head": "7600799a41266379ed5e7716eef963a7161277c0",
+        "stars": 9667,
+        "pushed_at": "2026-08-24T13:08:17Z",
+        "head_date": "2026-08-24T13:06:55Z"
+      }
+    },
+    "11-ui-ux-pro-max": {
+      "repo": "nextlevelbuilder/ui-ux-pro-max-skill",
+      "branch": "main",
+      "check": "head",
+      "recorded": {
+        "head": "f23267105ad1f4ccd94af45d382584ad45b586f7",
+        "stars": 123544,
+        "pushed_at": "2026-08-31T18:42:36Z",
+        "head_date": "2026-08-31T18:42:36Z"
+      }
+    },
+    "12-public-apis": {
+      "repo": "public-apis/public-apis",
+      "branch": "master",
+      "check": "head",
+      "recorded": {
+        "head": "1d093a984adba9dad6ff54c8753fe902f4cdff38",
+        "stars": 473796,
+        "pushed_at": "2026-08-31T20:26:11Z",
+        "head_date": "2026-08-31T20:26:11Z"
+      },
+      "data": {
+        "path": "~/.workbuddy/skills/public-apis/data/README.md",
+        "sha256": "874dd7e28c0d568f2a89996847e9b0d77449cedf0b3c04e13a5ecba88622d651",
+        "raw_url_template": "https://raw.githubusercontent.com/public-apis/public-apis/{head}/README.md",
+        "provenance": "~/.workbuddy/skills/public-apis/data/PROVENANCE.md"
+      }
+    },
+    "13-strix": {
+      "repo": "usestrix/strix",
+      "branch": "main",
+      "check": "both",
+      "recorded": {
+        "release": "v1.5.3",
+        "head": "1df67c52e2f469d5f1a035e28c7f736e881bd715",
+        "stars": 59740,
+        "pushed_at": "2026-09-01T00:24:58Z",
+        "head_date": "2026-09-01T00:22:33Z"
+      }
+    },
+    "14-cybersecurity-skills": {
+      "repo": "mukul975/Anthropic-Cybersecurity-Skills",
+      "branch": "main",
+      "check": "head",
+      "recorded": {
+        "head": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+        "stars": 31840,
+        "pushed_at": "2026-08-31T04:32:44Z",
+        "head_date": "2026-08-31T04:32:42Z"
+      },
+      "vendored": {
+        "dir": "~/.workbuddy/skills/cybersecurity-skills",
+        "note": "49MB 全量库；漂移时输出手动更新配方，不自动替换"
+      }
+    },
+    "16-context7": {
+      "repo": "upstash/context7",
+      "branch": "master",
+      "check": "both",
+      "recorded": {
+        "release": "@upstash/context7-mcp@4.0.4",
+        "head": "76140fc35897cf34ca4503b726b77a90c8fa4915",
+        "stars": 61457,
+        "pushed_at": "2026-08-31T13:50:22Z",
+        "head_date": "2026-08-31T13:49:47Z"
+      }
+    }
+  },
+  "provider_health": {
+    "note": "静态快照（T14）：健康状态由 toolstack-pipeline 月度巡检更新；risk_tier 供 SKILL §10.9 策略读取（0-1 低危 / 2 中危 / 3 高危 / 4 不可逆）"
+  },
+  "sdk_tools": {
+    "action-gate.py": {
+      "category": "READ",
+      "risk_tier": 1,
+      "timeout_ms": 30000,
+      "idempotent": true,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "bump-version.py": {
+      "category": "EDIT",
+      "risk_tier": 2,
+      "timeout_ms": 60000,
+      "idempotent": false,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "case-search.py": {
+      "category": "SEARCH",
+      "risk_tier": 1,
+      "timeout_ms": 30000,
+      "idempotent": true,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "ci-fail-analyze.py": {
+      "category": "READ",
+      "risk_tier": 1,
+      "timeout_ms": 30000,
+      "idempotent": true,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "ci-smoke.py": {
+      "category": "TEST",
+      "risk_tier": 2,
+      "timeout_ms": 600000,
+      "idempotent": false,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "diff-risk.py": {
+      "category": "READ",
+      "risk_tier": 1,
+      "timeout_ms": 30000,
+      "idempotent": true,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "env-snapshot.py": {
+      "category": "OBSERVE",
+      "risk_tier": 1,
+      "timeout_ms": 30000,
+      "idempotent": true,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "error-sig.py": {
+      "category": "READ",
+      "risk_tier": 1,
+      "timeout_ms": 30000,
+      "idempotent": true,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "flaky-check.py": {
+      "category": "TEST",
+      "risk_tier": 2,
+      "timeout_ms": 600000,
+      "idempotent": false,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "gh-workflow-check.py": {
+      "category": "READ",
+      "risk_tier": 1,
+      "timeout_ms": 30000,
+      "idempotent": true,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "git-pre-commit.py": {
+      "category": "GIT",
+      "risk_tier": 2,
+      "timeout_ms": 300000,
+      "idempotent": false,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "golden-run.py": {
+      "category": "NETWORK",
+      "risk_tier": 2,
+      "timeout_ms": 600000,
+      "idempotent": false,
+      "cost_estimate": "llm",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "install-hooks.py": {
+      "category": "GIT",
+      "risk_tier": 2,
+      "timeout_ms": 60000,
+      "idempotent": false,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "mutation-audit.py": {
+      "category": "TEST",
+      "risk_tier": 3,
+      "timeout_ms": 900000,
+      "idempotent": false,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib",
+      "note": "变异测试审计：临时改写 scripts/ 下源码（字节级还原 + sha256 校验），不可并发运行"
+    },
+    "patch-gate.py": {
+      "category": "READ",
+      "risk_tier": 1,
+      "timeout_ms": 30000,
+      "idempotent": true,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "privacy-scan.py": {
+      "category": "OBSERVE",
+      "risk_tier": 1,
+      "timeout_ms": 120000,
+      "idempotent": true,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "probe-tools.py": {
+      "category": "EXECUTE",
+      "risk_tier": 1,
+      "timeout_ms": 180000,
+      "idempotent": true,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "regression-guard.py": {
+      "category": "TEST",
+      "risk_tier": 2,
+      "timeout_ms": 600000,
+      "idempotent": false,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "review-prefilter.py": {
+      "category": "READ",
+      "risk_tier": 1,
+      "timeout_ms": 60000,
+      "idempotent": true,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "robustness-suite.py": {
+      "category": "TEST",
+      "risk_tier": 2,
+      "timeout_ms": 600000,
+      "idempotent": true,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "router-stats.py": {
+      "category": "DATABASE",
+      "risk_tier": 2,
+      "timeout_ms": 60000,
+      "idempotent": false,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "selfcheck-static.py": {
+      "category": "OBSERVE",
+      "risk_tier": 1,
+      "timeout_ms": 60000,
+      "idempotent": true,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "spec-tasks-import.py": {
+      "category": "EDIT",
+      "risk_tier": 2,
+      "timeout_ms": 60000,
+      "idempotent": false,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "task-state.py": {
+      "category": "DATABASE",
+      "risk_tier": 2,
+      "timeout_ms": 30000,
+      "idempotent": false,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "task-workspace.py": {
+      "category": "GIT",
+      "risk_tier": 3,
+      "timeout_ms": 120000,
+      "idempotent": false,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "token-meter.py": {
+      "category": "OBSERVE",
+      "risk_tier": 1,
+      "timeout_ms": 30000,
+      "idempotent": true,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "toolstack-pipeline.py": {
+      "category": "NETWORK",
+      "risk_tier": 2,
+      "timeout_ms": 600000,
+      "idempotent": false,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "verify-runner.py": {
+      "category": "EXECUTE",
+      "risk_tier": 3,
+      "timeout_ms": 600000,
+      "idempotent": false,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    },
+    "version-check.py": {
+      "category": "READ",
+      "risk_tier": 1,
+      "timeout_ms": 30000,
+      "idempotent": true,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib"
+    }
+  }
+}

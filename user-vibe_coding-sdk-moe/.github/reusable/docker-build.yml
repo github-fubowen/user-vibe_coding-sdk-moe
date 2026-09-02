@@ -1,0 +1,45 @@
+# reusable/docker-build.yml — Docker build+test reusable workflow (C2-2, GH 方案 §7)
+# 默认只构建+测试，不发版（CI 仅测试）；显式 push-image=true 才推 registry，
+# 且需要 REGISTRY/GITHUB_TOKEN 写权限——由消费方显式授予（ref-24 最小权限）。
+name: docker-build
+on:
+  workflow_call:
+    inputs:
+      context:
+        type: string
+        default: "."
+        description: docker build context
+      image-name:
+        type: string
+        description: 镜像名（如 ghcr.io/<org>/<repo>）
+      push-image:
+        type: boolean
+        default: false
+        description: 是否推送 registry（默认否，不发版纪律）
+      agent-run-id:
+        type: string
+        default: ""
+    secrets:
+      REGISTRY_TOKEN:
+        required: false
+permissions:
+  contents: read
+  packages: write   # 仅在 push-image=true 时实际使用；read-only 默认由下方 if 收窄
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t "${{ inputs.image-name }}:ci-${{ github.sha }}" "${{ inputs.context }}"
+      - name: Push image
+        if: inputs.push-image
+        run: |
+          echo "${{ secrets.REGISTRY_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker push "${{ inputs.image-name }}:ci-${{ github.sha }}"
+      - name: Record agent_run_id
+        if: inputs.agent-run-id != ''
+        run: |
+          echo "## agent_run_id" >> "$GITHUB_STEP_SUMMARY"
+          echo "${{ inputs.agent-run-id }}" >> "$GITHUB_STEP_SUMMARY"

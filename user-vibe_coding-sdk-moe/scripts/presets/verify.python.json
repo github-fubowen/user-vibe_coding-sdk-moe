@@ -1,0 +1,15 @@
+{
+  "schema": "verify-preset.v1",
+  "preset": "python",
+  "note": "Python 项目本地确定性阶梯（harness §21 顺序: format→lint→typecheck→test-targeted→test-full）。v2.9.0 T-18：test 拆为 test-targeted（fail-fast，轻/中档置信度只跑它）+ test-full（全量，full 档或预提交跑）；targeted 分支从此在随包预设上可达。--changed 时 test-targeted 自动追加映射到的测试文件（T-22）。用法: python scripts/verify-runner.py --config scripts/presets/verify.python.json --cwd . （--cwd 必填，否则步骤跑在 preset 目录里）",
+  "short_circuit": true,
+  "layers": [
+    { "name": "syntax",    "cmd": ["python", "-m", "compileall", "-q", "."], "timeout": 180 },
+    { "name": "format",    "cmd": ["ruff", "format", "--check", "."], "timeout": 120, "allow_missing": true },
+    { "name": "lint",      "cmd": ["ruff", "check", "."],               "timeout": 180, "allow_missing": true },
+    { "name": "typecheck", "cmd": ["mypy", "."],                        "timeout": 300, "allow_missing": true },
+    { "name": "test-targeted", "cmd": ["pytest", "-q", "-x"],           "timeout": 300, "allow_missing": true, "allow_exit_codes": [5] },
+    { "name": "test-full",     "cmd": ["pytest", "-q"],                 "timeout": 600, "allow_missing": true, "allow_exit_codes": [5] },
+    { "name": "security",  "cmd": ["pip-audit", "-q"],                  "timeout": 300, "allow_missing": true }
+  ]
+}

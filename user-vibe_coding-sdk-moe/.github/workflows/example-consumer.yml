@@ -1,0 +1,29 @@
+# example-consumer.yml — reusable workflows 消费方示例（C2-2 验收：1 示例消费方）
+# 展示"Agent 只选不生成"：python-ci / node-ci / docker-build 各选一次。
+name: example-consumer
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-check:
+    uses: ./.github/reusable/python-ci.yml
+    with:
+      python-version: "3.13"
+      workdir: .
+      smoke-command: python scripts/ci-smoke.py
+  node-check:
+    uses: ./.github/reusable/node-ci.yml
+    with:
+      node-version: "22"
+      workdir: ./web
+  docker-check:
+    uses: ./.github/reusable/docker-build.yml
+    with:
+      context: .
+      image-name: ci-only
+      push-image: false

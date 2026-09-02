@@ -1,0 +1,31 @@
+{
+  "schema": "memory.v1",
+  "layer": "solutions",
+  "note": "成功方案记忆（coding-agent-os §14 吸收）——problem → solution → applies_to",
+  "entries": [
+    {
+      "id": "sol-001",
+      "problem": "LLM 网关对未请求流式接口仍返回 SSE chunk（JSONDecodeError 崩溃）",
+      "solution": "parse_llm_response 先试纯 JSON，失败则逐行解析 data: chunk 拼 delta.content + 收集 usage",
+      "applies_to": "golden-run.py 及任何 OpenAI 兼容客户端",
+      "verified": true,
+      "tags": ["llm", "sse", "parsing"]
+    },
+    {
+      "id": "sol-002",
+      "problem": "verify-runner 分层配置缺 cmd 字段时 KeyError 崩溃",
+      "solution": "main 循环前置 isinstance/\"cmd\" in step 守卫，缺字段 exit 2 优雅收场",
+      "applies_to": "verify-runner.py v2.0",
+      "verified": true,
+      "tags": ["robustness", "verify"]
+    },
+    {
+      "id": "sol-003",
+      "problem": "版本 bump 需 6-10 处手工编辑 + changelog 插入",
+      "solution": "bump-version.py：精确版本 token 替换 + 首条 '## v' 前插入日期头 + --commit 本地提交（永不 push）",
+      "applies_to": "任何自版本管理 skill",
+      "verified": true,
+      "tags": ["versioning", "automation"]
+    }
+  ]
+}

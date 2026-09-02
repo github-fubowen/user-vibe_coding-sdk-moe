@@ -1,0 +1,49 @@
+{
+  "schema": "ci-smoke.v1",
+  "time": "2026-09-02T08:25:39+08:00",
+  "all_ok": true,
+  "steps": [
+    {
+      "step": "version-check",
+      "ok": true,
+      "exit": 0,
+      "detail": "consistent=True top=v2.10.4"
+    },
+    {
+      "step": "selfcheck-static",
+      "ok": true,
+      "exit": 0,
+      "detail": "no output"
+    },
+    {
+      "step": "robustness-suite",
+      "ok": true,
+      "exit": 0,
+      "detail": "pass_rate=1.0"
+    },
+    {
+      "step": "golden v2 validate",
+      "ok": true,
+      "exit": 0,
+      "detail": "valid=True"
+    },
+    {
+      "step": "golden v3 validate",
+      "ok": true,
+      "exit": 0,
+      "detail": "valid=True"
+    },
+    {
+      "step": "golden v3 offline",
+      "ok": true,
+      "exit": 0,
+      "detail": "pass_rate=1.0"
+    },
+    {
+      "step": "privacy-scan",
+      "ok": true,
+      "exit": 0,
+      "detail": "clean=True findings=0"
+    }
+  ]
+}

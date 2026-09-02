@@ -1,0 +1,88 @@
+{
+  "signatures": [
+    {
+      "id": "sig-py-shim",
+      "patterns": ["AttributeError: __spec__", "_apipkg", "py.std.argparse"],
+      "label": "沙箱 PYTHONPATH shim 干扰 pytest/py 包",
+      "fix": "脚本自身用 stdlib 零依赖；被探测工具报错属环境预期降级（ref-19 §6-3），换隔离 env 或用 managed python",
+      "tags": ["env", "python", "sandbox"]
+    },
+    {
+      "id": "sig-tmp-path",
+      "patterns": ["no records", "cannot find file", "no such file"],
+      "label": "Git Bash /tmp 路径 Windows Python 不解析",
+      "fix": "调用脚本时用 Windows 风格路径（<TEMP>/...），不用 /tmp/...（ref-19 §6-4）",
+      "tags": ["windows", "path", "gitbash"]
+    },
+    {
+      "id": "sig-changelog-layout",
+      "patterns": ["changelog header", "inserted", "## v1.1"],
+      "label": "CHANGELOG 规范布局被破坏（条目放标题上方）",
+      "fix": "保持 # CHANGELOG 标题最上、新条目在最上；bump-version 按此假设插入日期头（ref-19 §6-2）",
+      "tags": ["skill", "changelog", "layout"]
+    },
+    {
+      "id": "sig-git-pat-403",
+      "patterns": ["403", "could not read Username", "Permission to", "denied"],
+      "label": "git push 403 / 缺凭据（PAT 权限不足或未配置 helper）",
+      "fix": "fine-grained PAT 需对目标仓库 Contents: write；git 配置 credential helper：gh auth setup-git 一次",
+      "tags": ["git", "github", "auth"]
+    },
+    {
+      "id": "sig-index-lock",
+      "patterns": ["index.lock", "Unable to create.*lock"],
+      "label": "git index.lock 残留锁（沙箱杀重量级操作遗留）",
+      "fix": "rm .git/index.lock 后 git restore .；避免沙箱内 git subtree split / 跨大树 checkout",
+      "tags": ["git", "sandbox"]
+    },
+    {
+      "id": "sig-git-gone",
+      "patterns": ["origin/main [gone]", "upstream.*gone"],
+      "label": "沙箱静默丢远程跟踪引用（fetch 报成功但不落盘）",
+      "fix": "用户自己终端 git fetch origin 一次，或 git branch --unset-upstream main",
+      "tags": ["git", "sandbox"]
+    },
+    {
+      "id": "sig-node-engine",
+      "patterns": ["EBADENGINE", "engine-strict", "requires node"],
+      "label": "npm engine-strict 版本不满足",
+      "fix": "升级 node/npm 到要求版本（本机 node≥22.22.0 / npm≥12.0.0），或临时禁用 engine-strict",
+      "tags": ["node", "npm", "env"]
+    },
+    {
+      "id": "sig-ollama-timeout",
+      "patterns": ["Request aborted", "timed out", "Timeout"],
+      "label": "Ollama/MiniCPM5 thinking 常开致单次响应超时",
+      "fix": "thinking 默认关（think:false）；需要思考用 :think 后缀或 body.think=true",
+      "tags": ["ollama", "local", "timeout"]
+    },
+    {
+      "id": "sig-argparse-remainder",
+      "patterns": ["unrecognized arguments", "error: unrecognized"],
+      "label": "argparse 吃短横线参数（--cmd pytest -V 中 -V 被吞）",
+      "fix": "--cmd 用 nargs=argparse.REMAINDER；独立开关组合需冒烟三路径验证",
+      "tags": ["python", "argparse", "cli"]
+    },
+    {
+      "id": "sig-git-checkout-silent-del",
+      "patterns": ["unable to read tree", "missing blob", "invalid reflog"],
+      "label": "skills 仓库对象损坏 + checkout 静默删工作区文件",
+      "fix": "git fsck 先行；git hash-object -w 重建缺失 blob；装 post-checkout 钩子 git restore；勿在损坏仓库跨分支 checkout",
+      "tags": ["git", "corruption", "sandbox"]
+    },
+    {
+      "id": "sig-omniroute-503",
+      "patterns": ["Maximum combo retry limit reached", "service_unavailable", "503"],
+      "label": "OmniRoute 免费池瞬时 503/空响应",
+      "fix": "免费 combo 池上游不稳定属常态：稍后重试 / 换模型别名（auto/best-* / oc/*）/ 离线模式降级；调用方必须捕获 HTTPError（golden-run 已修复）",
+      "tags": ["omniroute", "api", "free-pool"]
+    },
+    {
+      "id": "sig-sse-stream",
+      "patterns": ["data:", "chat.completion.chunk", "JSONDecodeError Expecting value"],
+      "label": "LLM 网关强制 SSE 流（未请求 stream 也返回 data: chunks）",
+      "fix": "响应解析须 SSE 感知：先试 JSON，失败则逐行解析 data: 拼 delta.content（golden-run parse_llm_response 已实现，v1.13.1）",
+      "tags": ["llm", "sse", "stream", "omniroute"]
+    }
+  ]
+}
