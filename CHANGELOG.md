@@ -46,7 +46,7 @@
   幂等升级。*发现路径：F-52 移植提交在临时 worktree 被钩子拦截。*
 - **⚠️ 系统级 FS 异常（新发现，非 SDK 缺陷）**：本机对 `.git/refs/heads/` 下**新建嵌套目录**
   （如 `archive/…`）存在异步清除行为——git 报成功、reflog 落盘、ref 文件随即消失（含
-  `mkdir -p` 预建目录亦被清；扁平命名单层 ref 文件不受影响；C 盘 skills 库与 D:/git-backup
+  `mkdir -p` 预建目录亦被清；扁平命名单层 ref 文件不受影响；C 盘 skills 库与 D 盘 git-backup
   裸库均复现）。SDK 侧已全部改用扁平存档名规避；后续任何新建多级 ref 请用扁平名。
 
 ## v2.10.4（2026-09-02）
