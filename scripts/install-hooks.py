@@ -86,10 +86,14 @@ def main() -> int:
     # Hook body embeds the CURRENT interpreter's absolute path (machine-local hook
     # file, never committed — safe) so git runs the gate even when `python` is not
     # on PATH.
+    # F-56 (v2.10.5): hook exec path must be ABSOLUTE, not repo-relative; a relative
+    # path breaks in any linked worktree (worktree root != repo root): the gate fails
+    # closed with "No such file or directory" and blocks every commit there.
+    sdk_gate = (SDK_DIR / "scripts" / "git-pre-commit.py").resolve()
     hook_body = f"""#!/bin/sh
 # SDK pre-commit gate (installed by user-vibe-coding-sdk-moe/scripts/install-hooks.py, ref-23)
 # Gates: changed SDK scripts -> robustness subset; data files -> JSON/golden; new SDK files -> privacy-scan.
-exec "{sys.executable}" "{rel}/scripts/git-pre-commit.py" "$@"
+exec "{sys.executable}" "{sdk_gate.as_posix()}" "$@"
 """
 
     hook = root / ".git" / "hooks" / "pre-commit"

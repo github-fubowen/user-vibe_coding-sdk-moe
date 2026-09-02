@@ -30,13 +30,24 @@
   且全绿——单次未复现，失败用例名因当时 F-55 未落地而不可考。按 T-20 纪律单次失败不进修复环，
   留观：后续 ci-smoke 若复现，F-55 的 detail 增强可当场点名。
 
-### 环境发现（待用户决策，不入代码）
+### 环境处置与发现
 
-- **F-52（P1，skills 仓库对象库损坏扩大）**：v2.10.4 记录 1 个缺失 commit；本轮 fsck 复查实为
-  **2 缺失 commit（`141462bb` / `01e5f14f`）+ 1 缺失 blob（`230e4625`）**。影响面：
-  HEAD 分支深于 122 提交的历史不可遍历；`github-sync` 分支 tip 的父提交缺失（分支不可读）；
-  主裸备份 `workbuddy-skills.git` 同样缺这 3 个对象。`sdk-snapshot-20260902` 孤儿新根健康可用。
-  处置属分支手术（tier-3），**须用户显式决策**，报告见 `验证报告-SDK-v2.10.5-全面自检-2026-09-02.md` §3。
+- **F-52（P1，skills 仓库对象库损坏扩大）→ 已按方案 A 处置**：v2.10.4 记录 1 个缺失 commit；
+  本轮 fsck 复查实为 **2 缺失 commit（`141462bb` / `01e5f14f`）+ 1 缺失 blob（`230e4625`）**。
+  用户决策（A 新根重建）：`main` 重指向孤儿根 `sdk-snapshot-20260902` 之上的树级移植提交
+  （`commit-tree` 确定性移植 live tip 的 SDK 子树哈希，逐字节 = live 内容，skip worktree/tar 管道）；
+  旧血统以 `archive-*` 扁平分支存档（legacy-live / legacy-main / github-sync-broken）。
+  target 裸库已强推新 main（v2.10.5）并存档旧 v2.7.0 血统；GitHub 推送待 PAT 授 Workflows 权限。
+  *教训：首版经 worktree + tar 管道移植，产物树混杂不可信（树哈希 ≠ live 子树）——改 plumbing 后
+  以 `rev-parse <commit>:<subdir>` 的树哈希直接 commit-tree，零拷贝零歧义。*
+- **F-56（P2，install-hooks 相对路径 worktree 不兼容）**：钩子 exec 路径为仓库相对
+  `user-vibe_coding-sdk-moe/scripts/...`，在 linked worktree 中 fail-closed（每次提交被挡）。
+  修复：改为安装时解析的**绝对路径**（F2 renamed-dir 安全性保留）；存量钩子经 install-hooks
+  幂等升级。*发现路径：F-52 移植提交在临时 worktree 被钩子拦截。*
+- **⚠️ 系统级 FS 异常（新发现，非 SDK 缺陷）**：本机对 `.git/refs/heads/` 下**新建嵌套目录**
+  （如 `archive/…`）存在异步清除行为——git 报成功、reflog 落盘、ref 文件随即消失（含
+  `mkdir -p` 预建目录亦被清；扁平命名单层 ref 文件不受影响；C 盘 skills 库与 D:/git-backup
+  裸库均复现）。SDK 侧已全部改用扁平存档名规避；后续任何新建多级 ref 请用扁平名。
 
 ## v2.10.4（2026-09-02）
 
