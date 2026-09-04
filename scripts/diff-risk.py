@@ -39,8 +39,10 @@ import json
 import re
 import sys
 from pathlib import Path
+from _common import (EXIT_OK, EXIT_ERROR, EXIT_GATE, emit_json,
+                   now_iso, schema, build_parser, add_json_flag)
 
-SCHEMA = "diagnostic.v1"
+SCHEMA = schema("diagnostic")
 
 # ref-22 §8 thresholds — 协议行，不是建议
 AUTO_MAX = 0.3
@@ -197,7 +199,7 @@ def score(files: list[str], changed_lines: int, known_failures: list[str],
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Deterministic diff risk gate (ref-22 §8)")
+    ap = build_parser("Deterministic diff risk gate (ref-22 §8)")
     src = ap.add_mutually_exclusive_group()
     src.add_argument("--diff-file", default=None, help="unified diff file")
     src.add_argument("--stdin", action="store_true", help="read unified diff from stdin")
@@ -211,7 +213,7 @@ def main() -> int:
     ap.add_argument("--verify-confidence", type=float, default=None,
                     help="0-1: verify-runner confidence -> synthesize repair_confidence "
                          "(T-23/B.21: 0.5*(1-risk_score)+0.5*vc; <0.7 -> human_review_required)")
-    ap.add_argument("--json", action="store_true")
+    add_json_flag(ap)
     args = ap.parse_args()
 
     files: list[str] = []
@@ -220,7 +222,7 @@ def main() -> int:
         p = Path(args.diff_file)
         if not p.exists():
             print(f"[fatal] diff file not found: {p}", file=sys.stderr)
-            return 2
+            return EXIT_GATE
         files, changed = parse_unified_diff(p.read_text(encoding="utf-8", errors="replace"))
     elif args.stdin:
         files, changed = parse_unified_diff(sys.stdin.read())
@@ -232,7 +234,7 @@ def main() -> int:
     else:
         print("[fatal] no diff source: use --diff-file / --stdin / --stat / --files",
               file=sys.stderr)
-        return 2
+        return EXIT_GATE
 
     out = score(files, changed, load_known_failures(args.known_failures), args.error_class)
 
@@ -243,13 +245,13 @@ def main() -> int:
     if args.verify_confidence is not None:
         if not (0.0 <= args.verify_confidence <= 1.0):
             print("[fatal] --verify-confidence must be within [0, 1]", file=sys.stderr)
-            return 2
+            return EXIT_GATE
         rc = round(0.5 * (1 - out["score"]) + 0.5 * args.verify_confidence, 3)
         out["repair_confidence"] = rc
         out["human_review_required"] = rc < 0.7
 
     if args.json:
-        print(json.dumps(out, ensure_ascii=False, indent=2))
+        emit_json(out)
     else:
         print(f"== diff-risk: score={out['score']} band={out['band']} ==")
         print(f"  decision: {out['decision']}")
@@ -257,7 +259,7 @@ def main() -> int:
             print(f"    - {r}")
         if out["band"] == "human":
             print("  [GATE] score > 0.7 — 人工审核，不得自动推进（ref-22 §8 硬闸）")
-    return 2 if out["band"] == "human" else 0
+    return EXIT_GATE if out["band"] == "human" else EXIT_OK
 
 
 if __name__ == "__main__":

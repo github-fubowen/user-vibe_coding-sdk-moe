@@ -1,0 +1,396 @@
+{
+  "schema": "robustness-cases.v1",
+  "domain": "gates",
+  "comment": "F-59 Phase 1：声明式用例外置。来源=build_cases 内 C() 常量参数用例（AST 提取保真迁移，v2.10.12）；args 支持 {tmp} 占位符。",
+  "cases": [
+    {
+      "name": "diff-risk: auto band",
+      "script": "diff-risk.py",
+      "args": [
+        "--files",
+        "docs/x.md",
+        "--lines",
+        "5",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"band\": \"auto\""
+      ]
+    },
+    {
+      "name": "diff-risk: review band",
+      "script": "diff-risk.py",
+      "args": [
+        "--files",
+        "scripts/foo.py",
+        "--lines",
+        "100",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"band\": \"review\""
+      ]
+    },
+    {
+      "name": "diff-risk: human gate 硬闸 exit=2",
+      "script": "diff-risk.py",
+      "args": [
+        "--files",
+        "scripts/a.py,scripts/b.py",
+        "--lines",
+        "600",
+        "--known-failures",
+        "[\"scripts/a.py\"]",
+        "--error-class",
+        "quality",
+        "--json"
+      ],
+      "expect": 2,
+      "want": [
+        "\"band\": \"human\""
+      ]
+    },
+    {
+      "name": "diff-risk: 无 diff 源 fail-closed",
+      "script": "diff-risk.py",
+      "args": [
+        "--json"
+      ],
+      "expect": 2,
+      "want": [
+        "no diff source"
+      ]
+    },
+    {
+      "name": "patch-gate: numstat 预算内 → 放行",
+      "script": "patch-gate.py",
+      "args": [
+        "--numstat-file",
+        "{tmp}/p2-numstat.txt",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"ok\": true"
+      ]
+    },
+    {
+      "name": "patch-gate: 超 files/lines 预算 → exit2 ESCALATED",
+      "script": "patch-gate.py",
+      "args": [
+        "--numstat-file",
+        "{tmp}/p2-numstat-bad.txt",
+        "--json"
+      ],
+      "expect": 2,
+      "want": [
+        "\"recommended_action\": \"ESCALATED\""
+      ]
+    },
+    {
+      "name": "patch-gate: 依赖清单超 1 → 拒",
+      "script": "patch-gate.py",
+      "args": [
+        "--numstat-file",
+        "{tmp}/p2-numstat-deps.txt",
+        "--json"
+      ],
+      "expect": 2,
+      "want": [
+        "dependency manifests"
+      ]
+    },
+    {
+      "name": "patch-gate: 缺 diff 源 fail-closed",
+      "script": "patch-gate.py",
+      "args": [
+        "--json"
+      ],
+      "expect": 2,
+      "want": [
+        "no diff source"
+      ]
+    },
+    {
+      "name": "patch-gate: 畸形 numstat 行 → exit2 非 traceback",
+      "script": "patch-gate.py",
+      "args": [
+        "--numstat-file",
+        "{tmp}/p2-numstat-malformed.txt",
+        "--json"
+      ],
+      "expect": 2,
+      "want": [
+        "malformed numstat line"
+      ]
+    },
+    {
+      "name": "patch-gate: 策略版本钉不匹配 → exit2（cicd §15）",
+      "script": "patch-gate.py",
+      "args": [
+        "--stat",
+        "3,10",
+        "--policy-version",
+        "gate-policy.v0",
+        "--json"
+      ],
+      "expect": 2,
+      "want": [
+        "policy version mismatch"
+      ]
+    },
+    {
+      "name": "action-gate: 策略版本钉不匹配 → exit2（cicd §15）",
+      "script": "action-gate.py",
+      "args": [
+        "--tool",
+        "diff-risk",
+        "--policy-version",
+        "gate-policy.v0",
+        "--json"
+      ],
+      "expect": 2,
+      "want": [
+        "policy version mismatch"
+      ]
+    },
+    {
+      "name": "diff-risk: repair_confidence 合成（vc=0.9 低风险）",
+      "script": "diff-risk.py",
+      "args": [
+        "--files",
+        "docs/x.md",
+        "--lines",
+        "5",
+        "--verify-confidence",
+        "0.9",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"repair_confidence\"",
+        "\"human_review_required\": false"
+      ]
+    },
+    {
+      "name": "diff-risk: repair_confidence 低 → 需人工",
+      "script": "diff-risk.py",
+      "args": [
+        "--files",
+        "scripts/a.py",
+        "--lines",
+        "200",
+        "--verify-confidence",
+        "0.4",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"human_review_required\": true"
+      ]
+    },
+    {
+      "name": "action-gate: alias 命中 tier1 → ALLOW",
+      "script": "action-gate.py",
+      "args": [
+        "--tool",
+        "ocr",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"decision\": \"ALLOW\"",
+        "\"open-code-review (ocr)\"",
+        "\"idempotent\": true"
+      ]
+    },
+    {
+      "name": "action-gate: 未知工具 → DENY",
+      "script": "action-gate.py",
+      "args": [
+        "--tool",
+        "no-such-tool-xyz",
+        "--json"
+      ],
+      "expect": 2,
+      "want": [
+        "\"decision\": \"DENY\"",
+        "not in toolstack"
+      ]
+    },
+    {
+      "name": "action-gate: args 非法 JSON → DENY",
+      "script": "action-gate.py",
+      "args": [
+        "--tool",
+        "ocr",
+        "--args-json",
+        "{bad",
+        "--json"
+      ],
+      "expect": 2,
+      "want": [
+        "\"decision\": \"DENY\""
+      ]
+    },
+    {
+      "name": "action-gate: tier3 → 放行但附强制条件",
+      "script": "action-gate.py",
+      "args": [
+        "--tool",
+        "strix",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"decision\": \"ALLOW\"",
+        "rollback validated"
+      ]
+    },
+    {
+      "name": "action-gate: 自有脚本 sdk_tools → ALLOW（F-42 回归）",
+      "script": "action-gate.py",
+      "args": [
+        "--tool",
+        "diff-risk.py",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"decision\": \"ALLOW\"",
+        "\"toolstack_key\": \"diff-risk.py\""
+      ]
+    },
+    {
+      "name": "action-gate: stem 匹配 diff-risk ≡ diff-risk.py（F-42）",
+      "script": "action-gate.py",
+      "args": [
+        "--tool",
+        "diff-risk",
+        "--args-json",
+        "{\"files\":\"a.py\"}",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"decision\": \"ALLOW\"",
+        "\"tool\": \"diff-risk\""
+      ]
+    },
+    {
+      "name": "action-gate: git-push tier4 → DENY（F-44 回归）",
+      "script": "action-gate.py",
+      "args": [
+        "--tool",
+        "git-push",
+        "--json"
+      ],
+      "expect": 2,
+      "want": [
+        "\"decision\": \"DENY\"",
+        "\"risk_tier\": 4",
+        "explicit human approval"
+      ]
+    },
+    {
+      "name": "action-gate: git-push --user-approved → ALLOW（F-44）",
+      "script": "action-gate.py",
+      "args": [
+        "--tool",
+        "git-push",
+        "--user-approved",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"decision\": \"ALLOW\"",
+        "human approval recorded"
+      ]
+    },
+    {
+      "name": "action-gate: resolve 未登记工具 → BLOCKED exit 2（R-5 负向）",
+      "script": "action-gate.py",
+      "args": [
+        "--resolve",
+        "--tool",
+        "zz-nonexistent",
+        "--toolstack",
+        "{tmp}/toolstack-resolve.json"
+      ],
+      "expect": 2,
+      "want": [
+        "BLOCKED",
+        "未登记"
+      ]
+    },
+    {
+      "name": "action-gate: resolve degraded + 可用 fallback → DEGRADED（R-5）",
+      "script": "action-gate.py",
+      "args": [
+        "--resolve",
+        "--tool",
+        "a.py",
+        "--toolstack",
+        "{tmp}/toolstack-resolve.json",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"decision\": \"DEGRADED\"",
+        "\"tool\": \"b.py\""
+      ],
+      "dont": [
+        "\"decision\": \"BLOCKED\""
+      ]
+    },
+    {
+      "name": "action-gate: resolve active → READY（R-5）",
+      "script": "action-gate.py",
+      "args": [
+        "--resolve",
+        "--tool",
+        "b.py",
+        "--toolstack",
+        "{tmp}/toolstack-resolve.json",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"decision\": \"READY\""
+      ]
+    },
+    {
+      "name": "action-gate: resolve unavailable 无 fallback → BLOCKED（R-5）",
+      "script": "action-gate.py",
+      "args": [
+        "--resolve",
+        "--tool",
+        "c.py",
+        "--toolstack",
+        "{tmp}/toolstack-resolve.json",
+        "--json"
+      ],
+      "expect": 2,
+      "want": [
+        "\"decision\": \"BLOCKED\""
+      ]
+    },
+    {
+      "name": "action-gate: resolve 报出 ci-smoke 前置步骤（R-5 依赖可见）",
+      "script": "action-gate.py",
+      "args": [
+        "--resolve",
+        "--tool",
+        "version-check",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"is_step\": true",
+        "\"position\": 0"
+      ]
+    }
+  ]
+}

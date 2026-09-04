@@ -347,11 +347,109 @@ DEFAULT_SDK_TOOL = {
 }
 
 
-def check_sdk_tools(manifest: dict) -> tuple[list[dict], bool]:
+# --- R-9: 重复登记检测（ResourceOS §21.1）-------------------------------------
+# Stage 3b 此前"仅增不删、无查重"：同名能力的脚本换个文件名就会被再登记一次，
+# 于是同一个能力在表里出现两份，路由与 health 都被稀释。
+# §21.1 的原则是**标记进评审队列而非自动合并** —— 所以只 warn + 拒绝自动登记，
+# 合并与否留给人工（capability 等价性不是 token 重叠能判定的）。
+DUP_THRESHOLD = 0.7
+_CJK = r"\u4e00-\u9fff"
+_WORD_SPLIT_RE = re.compile(r"[^0-9a-zA-Z]+")
+_CJK_RUN_RE = re.compile(f"[{_CJK}]+")
+# 文件名里的噪声词：`x.py` 与 `x-alt.py` 的 "py" 不该贡献相似度
+_STOP_TOKENS = {"py"}
+
+
+def tokenize(text: str, drop_stop: bool = False) -> set[str]:
+    """stdlib 分词：ASCII 按非字母数字切分，CJK 按字 bigram（中文无空格）。"""
+    text = (text or "").lower()
+    toks: set[str] = set()
+    for run in _WORD_SPLIT_RE.split(text):
+        if run:
+            toks.add(run)
+    for m in _CJK_RUN_RE.finditer(text):
+        s = m.group(0)
+        if len(s) == 1:
+            toks.add(s)
+        for i in range(len(s) - 1):
+            toks.add(s[i:i + 2])
+    return toks - _STOP_TOKENS if drop_stop else toks
+
+
+def jaccard(a: set[str], b: set[str]) -> float:
+    if not a or not b:
+        return 0.0
+    return len(a & b) / len(a | b)
+
+
+def overlap_coefficient(a: set[str], b: set[str]) -> float:
+    """|A∩B| / min(|A|,|B|) —— 判定"名字是已有名字的超集"（x-alt ⊃ x）。
+
+    Jaccard 会惩罚额外 token（`verify-runner-alt` vs `verify-runner` 只有 0.5），
+    而重复登记的形态恰恰是"同一个能力 + 后缀"，用重叠系数才抓得住。
+    """
+    if not a or not b:
+        return 0.0
+    return len(a & b) / min(len(a), len(b))
+
+
+def name_tokens(key: str) -> set[str]:
+    """条目键名的词袋（`verify-runner.py` → {verify, runner}）。"""
+    stem = key[:-3] if key.endswith(".py") else key
+    return tokenize(stem.replace("-", " ").replace("_", " "), drop_stop=True)
+
+
+def desc_tokens(meta: dict) -> set[str]:
+    """描述面的词袋：note + group + category + capabilities。"""
+    parts = [meta.get("note", ""), meta.get("group", ""), meta.get("category", "")]
+    parts.append(" ".join(meta.get("capabilities") or []))
+    return tokenize(" ".join(str(p) for p in parts), drop_stop=True)
+
+
+def find_duplicates(manifest: dict, candidates: list[str],
+                    threshold: float = DUP_THRESHOLD) -> list[dict]:
+    """待登记条目 vs 现存条目的重复检测（§21.1：只标记，不自动合并）。
+
+    两个通道，任一超阈值即标记：
+      * **name**（主通道）：待登记条目此时只有文件名，用重叠系数判定
+        "名字是已有名字的超集"（`x-alt` ⊃ `x`）—— Jaccard 会被后缀稀释。
+      * **desc**：note + group + category + capabilities 的 Jaccard（§21.1 原始口径）；
+        自动登记条目尚无 note，此通道通常为 0，但对**手工填写过 note** 的
+        重复条目有效。
+
+    通用默认 note（"auto-registered by…"）**不计入**候选侧 —— 它对所有自动登记
+    条目都一样，计入会把任意两个自动登记条目判成重复。
+    """
+    sdk_tools: dict = manifest.get("sdk_tools", {})
+    out: list[dict] = []
+    for name in candidates:
+        cand_name = name_tokens(name)
+        cand_desc: set[str] = set()  # 待登记条目无 note/group/capabilities
+        best_n, best_d, best_k = 0.0, 0.0, None
+        for k, meta in sdk_tools.items():
+            if k == name:
+                continue
+            n_sim = overlap_coefficient(cand_name, name_tokens(k))
+            d_sim = jaccard(cand_desc, desc_tokens(meta)) if cand_desc else 0.0
+            score = max(n_sim, d_sim)
+            if score > max(best_n, best_d):
+                best_n, best_d, best_k = n_sim, d_sim, k
+        if best_k is not None and max(best_n, best_d) >= threshold:
+            out.append({"script": name, "duplicate_of": best_k,
+                        "name_overlap": round(best_n, 3),
+                        "desc_jaccard": round(best_d, 3),
+                        "score": round(max(best_n, best_d), 3),
+                        "threshold": threshold,
+                        "action": "manual confirm — 不自动登记、不自动合并（§21.1）"})
+    return out
+
+
+def check_sdk_tools(manifest: dict, threshold: float = DUP_THRESHOLD,
+                    scripts_dir: Path | None = None) -> tuple[list[dict], bool]:
     """Diff scripts/*.py against manifest `sdk_tools`. Returns (rows, drift)."""
     sdk_tools: dict = manifest.get("sdk_tools", {})
     exempt = set(manifest.get("sdk_tools_exempt", []))
-    on_disk = {p.name for p in SCRIPT_DIR.glob("*.py")}
+    on_disk = {p.name for p in (scripts_dir or SCRIPT_DIR).glob("*.py")}
     unregistered = sorted(on_disk - set(sdk_tools) - exempt)
     missing = sorted(k for k in sdk_tools if k not in on_disk)
     rows = ([{"script": n, "status": "unregistered",
@@ -360,26 +458,41 @@ def check_sdk_tools(manifest: dict) -> tuple[list[dict], bool]:
             + [{"script": n, "status": "missing",
                 "action": "manual removal (never auto-deleted)"}
                for n in missing])
-    return rows, bool(rows)
+    # R-9：重复登记预警并入同一张表（状态独立，不改变 drift 语义 ——
+    # 未登记才是 drift，疑似重复只是人工确认项）
+    rows += [dict(r, status="suspect-duplicate") for r in
+             find_duplicates(manifest, unregistered, threshold=threshold)]
+    return rows, bool(unregistered or missing)
 
 
-def update_sdk_tools(manifest: dict) -> list[str]:
+def update_sdk_tools(manifest: dict, allow_duplicate: bool = False,
+                     threshold: float = DUP_THRESHOLD,
+                     scripts_dir: Path | None = None) -> tuple[list[str], list[str]]:
     """Register unregistered scripts with conservative defaults.
 
     Additive only: registering a script is safe (it makes the script gateable).
     Removing a stale entry is destructive, so `missing` entries are reported but
     never auto-deleted (§10.9 risk tier 3 → human decision).
+
+    R-9: scripts flagged as suspect-duplicate are **held back** — §21.1 says mark
+    for review, never auto-merge, so the gate refuses to register them unless
+    `--allow-duplicate` is passed.
     """
     sdk_tools: dict = manifest.setdefault("sdk_tools", {})
     exempt = set(manifest.get("sdk_tools_exempt", []))
-    on_disk = {p.name for p in SCRIPT_DIR.glob("*.py")}
+    on_disk = {p.name for p in (scripts_dir or SCRIPT_DIR).glob("*.py")}
+    pending = sorted(on_disk - set(sdk_tools) - exempt)
+    dupes = find_duplicates(manifest, pending, threshold=threshold)
+    held: set[str] = set() if allow_duplicate else {d["script"] for d in dupes}
     added = []
-    for name in sorted(on_disk - set(sdk_tools) - exempt):
+    for name in pending:
+        if name in held:
+            continue
         entry = dict(DEFAULT_SDK_TOOL)
         sdk_tools[name] = entry
         added.append(name)
     manifest["sdk_tools"] = dict(sorted(sdk_tools.items()))
-    return added
+    return added, sorted(held)
 
 
 def print_report(probe_rows: list[dict], up_rows: list[dict], data_rows: list[dict],
@@ -425,6 +538,12 @@ def main() -> int:
     ap.add_argument("--manifest", default=None,
                     help="use a different manifest (fixtures/tests; lets the drift "
                          "path be asserted offline instead of depending on live upstream)")
+    ap.add_argument("--dup-threshold", type=float, default=DUP_THRESHOLD,
+                    help=f"重复登记 Jaccard 阈值（默认 {DUP_THRESHOLD}；§21.1 只标记不合并）")
+    ap.add_argument("--scripts-dir", default=None,
+                    help="扫描哪个 scripts/ 目录（夹具；默认脚本自身所在目录）")
+    ap.add_argument("--allow-duplicate", action="store_true",
+                    help="放行疑似重复条目的自动登记（人工确认后使用）")
     args = ap.parse_args()
 
     manifest_path = Path(args.manifest).resolve() if args.manifest else MANIFEST
@@ -442,7 +561,9 @@ def main() -> int:
     probe_rows = probe_local(local_tools)
     up_rows, drift = check_upstream(gh, refs)
     data_rows, data_bad = check_data(refs)
-    sdk_rows, sdk_drift = check_sdk_tools(manifest)
+    sdir = Path(args.scripts_dir).resolve() if args.scripts_dir else None
+    sdk_rows, sdk_drift = check_sdk_tools(manifest, threshold=args.dup_threshold,
+                                          scripts_dir=sdir)
     drift = drift or data_bad or sdk_drift
 
     if args.json:
@@ -464,11 +585,15 @@ def main() -> int:
         log("== Update ==")
         manifest["last_check"] = now_iso()
         changed = update_refs(gh, refs)
-        added = update_sdk_tools(manifest)
+        added, held = update_sdk_tools(manifest, allow_duplicate=args.allow_duplicate,
+                                       threshold=args.dup_threshold, scripts_dir=sdir)
         for name in added:
             log(f"  [update] sdk_tools += {name} (tier "
                 f"{DEFAULT_SDK_TOOL['risk_tier']}, review category/risk_tier)")
-        changed += [f"sdk_tools+{n}" for n in added]
+        for name in held:
+            log(f"  [held]   sdk_tools !{name} — 疑似重复登记，未自动登记"
+                f"（人工确认后加 --allow-duplicate；§21.1 不自动合并）")
+        changed += [f"sdk_tools+{n}" for n in added] + [f"sdk_tools!{n}" for n in held]
         manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
                                  encoding="utf-8")
         log(f"  [update] manifest saved (last_check={manifest['last_check']}): {manifest_path}")

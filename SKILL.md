@@ -1,7 +1,7 @@
 ---
 name: user-vibe_coding-sdk-moe
 description: >
-  MoE-optimized coding skill SDK (v2.10.6). USE when the user starts a coding session,
+  MoE-optimized coding skill SDK (v2.10.12). USE when the user starts a coding session,
   says "start coding" / "coding mode" / "vibe coding" / "开发模式" / "写代码" /
   or asks to begin any write/debug/review/refactor task. Maximizes Mixture-of-Experts
   model output quality via MANDATORY ENGLISH COT (thinking chain), per-task thinking
@@ -10,7 +10,7 @@ description: >
   Route to the right path: Vibe / Engineering / SDD / Debug / Review / Quick-Edit.
 ---
 
-# user-vibe_coding-sdk-moe v2.10.6 — MoE-Optimized Coding SDK
+# user-vibe_coding-sdk-moe v2.10.12 — MoE-Optimized Coding SDK
 
 > **What this is**: A coding SDK tuned for MoE-family models (DeepSeek V4/Qwen3.5-Max/Kimi K2/GLM-4.6/MiniMax M2/Doubao/Hunyuan/Step).
 > **Design basis**: 5 research reports (2026-08): CN MoE architecture survey, MoE capability-maximization handbook, LLM DIY tuning handbook, LLM power-user handbook, GitHub MoE ecosystem survey.
@@ -135,7 +135,7 @@ Think:
 | Gate | Rule |
 |------|------|
 | **G1 Context minimalism** | Load only what the task needs: relevant skill description, relevant files, relevant docs. Never "full repo" context. |
-| **G2 Progressive disclosure** | This SKILL.md is the entry (~37KB, 实测 2026-09-02 = 38,375B). Load `references/*` only when a section is needed — NEVER the whole set. |
+| **G2 Progressive disclosure** | This SKILL.md is the entry (~36KB, 实测 2026-09-03 = 36,950B). Load `references/*` only when a section is needed — NEVER the whole set. |
 | **G3 Static tool routing** | §6 maps mode → toolset ONCE (static, ~0 extra tokens). Probe availability once per session; degrade silently. |
 | **G4 max_tokens headroom** | Measure thinking-token distribution on first run (ref-06), then set `max_tokens = thinking + expected answer × 1.5`. |
 | **G5 Stable prefix** | System prompt + fixed task instructions FIRST (cacheable), volatile content (user input, retrieved chunks) LAST (§7). |
@@ -223,7 +223,7 @@ Every fix/repair closes with a verdict — **SUCCESS is never the default**:
 | REGRESSION | target fixed but blast-radius anomaly (something depending on it broke) | check DEPENDS_ON/CONFLICTS neighbors, add regression fix |
 | UNKNOWN | cannot determine (insufficient signals / unstable repro) | run one more experiment; NEVER force into SUCCESS/FAILED |
 
-Debug 模式细则（确定性先行清单、假设 schema、案例库格式）见 ref-18。验证步骤用确定性闸：`scripts/verify-runner.py --config <preset>.json --json`（ref-19）——**随包预设** `scripts/presets/verify.{python,node,docs}.json`（必带 `--cwd .`），脚本报 pass/fail 事实，五态判定留在 agent。状态机落地：五态判定后经 `scripts/task-state.py transition` 写任务状态（ref-20）；修复升级阶梯 L0-L5、熔断与 L5 人类终态见 ref-22。
+Debug 细则见 ref-18；验证走确定性闸 `verify-runner.py --config <preset>.json --json`（预设见 `scripts/presets/`，必带 `--cwd .`）——脚本只报事实，**五态判定留在 agent**；判定后 `task-state.py transition` 写状态（ref-20），升级阶梯 L0-L5 见 ref-22。
 
 **三条已脚本化的硬闸（v2.7.0，此前只有协议文本）**：
 
@@ -231,9 +231,13 @@ Debug 模式细则（确定性先行清单、假设 schema、案例库格式）�
 |---|---|---|
 | 修复预算 `max_repair_attempts=3` | `task-state.py transition`（进入 REPAIR/REPAIRING 时自动判定） | 第 4 次修复 → exit 2，唯一合法出口 `ESCALATED`（`--max-repair` 可调，0=不限） |
 | 振荡检测 | 同上 | 同一 `(from,to)` 转移 > 3 次 → exit 2（`--allow-loop` 显式放行） |
-| Diff Risk Scoring | `scripts/diff-risk.py --diff-file p.patch --known-failures ... --error-class ...` | `score > 0.7` → exit 2，人工审核，agent 不得自行放行（ref-22 §8） |
+| Diff Risk Scoring | `diff-risk.py --diff-file <p>` | `score > 0.7` → exit 2，人工审核，agent 不得自行放行（ref-22 §8） |
 
-另有 **DAG 依赖闸**：`depends_on` 未完成（非 DONE）时禁止进入 `IMPLEMENT`；**崩溃恢复**：`task-state.py checkpoint` / `resume`（WAITING/CRASHED 均为可恢复非终态）。CI 失败日志用 `scripts/ci-fail-analyze.py` 解析为 diagnostic.v1（C1-4，v2.8.0 增 permission/dependency/assertion 类）喂 ref-18 环。**origin class（v2.9.0 T-19）**：diagnostic 增 `origin`（code/test/dependency/infra/environment/flaky/unknown）+ `recommended_action`（infra→RETRY · test→REPAIR_TEST · unknown→DIAGNOSE…）——**由 origin 而非 leaf 决定下一步动作**（防"一切皆代码缺陷"误修）。**flaky 前置判别（v2.9.0 T-20）**：`scripts/flaky-check.py --runs 5 --cmd <测试命令>`——单次失败绝不直接修代码；混合结果且 N≥5 → FLAKY → QUARANTINE（永不删除）；Stage 5-8 失败先过它再进修复环。**回归测试双向闸（v2.9.0 T-21）**：`scripts/regression-guard.py --base <修复前ref> --test <命令>`——base 必须 FAIL、head 必须 PASS，两边都过 = 自证式弱测试 exit 2。**测试选择（v2.9.0 T-22）**：`verify-runner --changed <files>` 按约定映射注入 test-targeted 层（无映射 fail-open）——修复循环只跑受影响测试。**补丁规模预算（v2.10.0 T-23）**：`scripts/patch-gate.py --numstat-file n.txt`（kernel §I：files≤5 / lines≤300 / 依赖清单≤1）超限 exit 2 → ESCALATED——diff-risk 是评分不是预算闸；`diff-risk --verify-confidence` 合成 `repair_confidence`（<0.7 强制人工，B.21）。**动作预执行门（v2.10.0 T-25）**：`scripts/action-gate.py --tool <name>`——toolstack 存在性/风险分级/args 校验，tier≥4 须 `--user-approved`（先问用户）。**v2.10.1 修正**：查表范围含 `sdk_tools` + `local_tools` 两张表（原仅查 `local_tools`，22 个自有脚本全部被误判 DENY），并支持 stem 匹配（`diff-risk` ≡ `diff-risk.py`）；`git-push` 以 tier-4 登记，push 闸门有落点。**升级即出包（v2.10.0 T-24）**：`task-state.py escalation-pack --task <id>` 七字段高信号包，ref-22 L5 必附。**幂等键（v2.10.0 T-26）**：`task-state transition --idempotency-key <k>` 同键同目标重放 = no-op 不耗预算，同键换目标 exit 2。**版本串与 CHANGELOG 顺序闸（v2.8.2 T-16）**：`scripts/version-check.py --json` —— SKILL frontmatter / SKILL 标题 / README blurb / README 版本行 / CHANGELOG 首个条目五处一致 + 条目严格递减无重复，失配即 exit 2，已置为 ci-smoke 第 0 步（cheapest-first；F-26 盲区闭合：此前红灯只能靠 workspace 侧 audit 发现）。**自适应验证深度（v2.8.0 T-07）**：`verify-runner.py --confidence <0-1>`（<0.4 全层 / 0.4-0.7 语法+类型+目标测试 / >0.7 语法+目标测试；`--layers` 显式声明优先；层名走显式别名匹配表，T-18）。**security 层恒保（v2.8.2 T-17）**：任何档位都不得剔除安全扫描层（verification-kernel Stage 9 属硬闸；F-27 曾让高置信补丁静默跳过 pip-audit / npm audit）。**完成条件闸（T-08）**：`task-state.py init --done-when` + FINALIZE→DONE 必须附 `--done-evidence`；transition 同步追加 `events.jsonl` 事件台账（T-10，trace-export 读流）。
+**闸门台账**（逐条定义、命令与阈值**一律在 refs**，热路径只留判据与指针）：
+
+- **ref-19**：T-07 自适应验证深度 · T-16 版本串/CHANGELOG 顺序闸 · T-17 security 层恒保 · T-18 层名别名 · T-22 测试选择
+- **ref-22**：T-20 flaky 前置判别 · T-21 回归双向闸 · T-23 补丁规模预算 · T-24 升级包（修复预算/振荡/diff-risk 见上表 §7/§7.1/§8）
+- **ref-22 §3.1 · ref-19 §2.7 · ref-20 §6.1 · ref-23**：T-19 origin 分流 · T-25 动作门 · T-26 幂等键 · DAG 依赖闸 · 崩溃恢复 · CI 失败归因
 
 ### 5.7 编辑协议（Edit Protocol — v2.7.0 新增，harness §21）
 
@@ -263,7 +267,7 @@ Search/Replace  ──▶  Unified Diff / Patch  ──▶  whole-file rewrite
 | **Execution Plane**（Engineering/SDD 开工前） | `task-workspace.py` create/verify（per-task worktree 隔离）→ `task-state.py init --depends-on ...`（DAG 依赖）→ `task-state.py checkpoint` / `resume`（崩溃恢复） | 多任务隔离 + 依赖编排 + 长会话可恢复 | `task-workspace.py status --dir <ws>` |
 | **Quick Edit** | none (task too small) | fix → verify（走 §5.7 编辑协议） | skip |
 
-Probe rules: **once per session via `scripts/probe-tools.py --json`**（ref-19 单次调用探全部，替代逐个 `--version`）; unavailable → next in chain, never block; report degradation in final summary. **Minimal-need principle**: graph query > grep > full-file read.
+Probe rules: **once per session via `scripts/probe-tools.py --json`**（ref-19 单次调用探全部，替代逐个 `--version`）; unavailable → next in chain, never block; report degradation in final summary. **Minimal-need principle**: graph query > grep > full-file read. **工具健康态（R-4）**：`degraded`/`unavailable` 条目降权并改走 `fallback`（schema-4 字段，`probe-tools --write-back` 维护，`action-gate --resolve` 预检三态）—— 明细见 ref-25 §2。
 
 **维护（工具栈巡检）**：`python scripts/toolstack-pipeline.py --update --commit`（ref-15）——六阶段 probe→diff→report→update→commit→push-gate；`--push` 需交互 TTY 显式确认。建议每月一次（§8 version-drift re-run 落地）。
 
@@ -291,6 +295,18 @@ Probe rules: **once per session via `scripts/probe-tools.py --json`**（ref-19 �
 - Long-context usage: full document injection for whole-book analysis (cite sections); key-files + tree for codebases; retrieval top-k for Q&A (8–16K chunks OK on 1M-context MoE).
 - 动态检索协议（检索顺序 / 按类预算 / 排除清单 / 压缩时机）见 ref-21 —— 本节管静态前缀，ref-21 管动态检索，合并为完整上下文流水线。
 
+**分类预算表（R-6，吸收 ResourceOS §14.3 + §32.3）** —— G1-G6 只管"不许装什么"，这里管"每类最多装多少"（软上限，超限先压缩再注入；明细与压缩时机见 ref-21）：
+
+| 类 | 软上限 | 超限时 |
+|---|---|---|
+| system（角色/协议/输出规范） | 固定，缓存区，永不裁剪 | — |
+| task（本轮不变指令） | ≤2K token | 下沉 refs，留指针行 |
+| 活动资源 L3（refs 全文） | ≤8K token | 只留摘要 + 按需再取 |
+| memory（4 层 JSON + 宿主记忆） | ≤2K token | 只留命中条目 |
+| 前序结果 / 检索 hits | ≤6K token | 去重 + 只留结论行 |
+
+> **reasoning 硬底线**：输入类预算再紧张也不得挤占输出推理空间 —— 压缩只对上表输入类生效，`max_tokens` 不得因注入而低于任务档位（§2.2）所需；二者冲突时**先砍输入**。
+
 ---
 
 ## 8. Evaluation & Version Drift — close the loop (ref-05)
@@ -317,19 +333,20 @@ Probe rules: **once per session via `scripts/probe-tools.py --json`**（ref-19 �
 | 09 | `references/09-cli-anything.md` | CLI-Anything (HKUDS) — 软件 Agent-Native CLI 生成，cli-hub 用法与风险（轻量条目, §6 Engineering） |
 | 10 | `references/10-academic-research-skills.md` | ARS-Codex — 学术研究技能套件（系统综述/论文流水线/实验 agent），CC BY-NC 指针引用 |
 | 11 | `references/11-ui-ux-pro-max.md` | UI/UX Pro Max — 设计智能技能套件（7 子技能，离线数据引擎），核心运行时 Benign / CLI 2 项 Suspicious，§6 Vibe 接入 |
-| 12 | `../public-apis/SKILL.md` | public-apis — 公共 API 离线检索（50 分类 / 1668 API，数据 pinned commit + SHA256 溯源，stdlib 只读脚本 Benign），Tier T2 |
+| 12 | `../public-apis/SKILL.md` | public-apis — 公共 API 离线检索（50 分类 / 1668 API，数据 pinned commit + SHA256 溯源，stdlib 只读脚本 Benign），Tier T2；外部注册（E-3：相对路径受存在性闸） |
 | 13 | `references/13-strix.md` | Strix — AI 渗透测试（授权目标）：Graph of Agents 多代理利用+PoC 验证，SARIF/MD 报告，官方 4 技能，§6 Review 接入；⚠️ 仅限授权 |
 | 14 | `references/14-cybersecurity-skills.md` | Anthropic Cybersecurity Skills — 817 技能 / 34 域 / 6 框架安全知识库（agentskills.io），**已本地落地**（`cybersecurity-skills` 全量库 + `cybersecurity-skills-router` 检索），复核审计 Benign；安全任务走 §6 链：reverse-skill-router → cybersecurity-skills-router → ref-14 → Strix；⚠️ 仅限授权 |
 | 15 | `references/15-toolstack-pipeline.md` | 工具栈维护流水线（`scripts/toolstack-pipeline.py` + `toolstack.json`）——probe→diff→report→update→commit→push-gate 六阶段自动化，gh api 上游核对 + SHA256 数据完整性 + push 显式确认门禁（§10 纪律编码） |
 | 16 | `references/16-context7.md` | Context7（upstash/context7，MIT，60.9K★）——实时库文档查询 / ctx7 技能管理 / MCP，§6 SDD·Engineering 的 docs 检索环节；pin @upstash/context7-mcp@4.0.2 |
+| 17 | `references/17-agent-doctor.md` | Agent Doctor 架构（AI Ops 控制平面，本地文档指针）——状态化路由/验证五态/风险分层的设计依据；吸收映射与排除项（§4/§5.6/§10.9 来源） |
+| 18 | `references/18-debug-diagnosis.md` | Debug 诊断协议——确定性先行清单 → 假设-证据-实验环 → 验证五态判定 → 问题案例库（§1 Debug / §5.6 落地细则） |
 | 19 | `references/19-token-scripts.md` | Token 脚本化流水线——9 脚本全实现：probe-tools / verify-runner / bump-version（P0）· golden-run / error-sig / case-search（P1）· env-snapshot / review-prefilter / token-meter（P2）；§3 G-gates 落地 |
 | 20 | `references/20-task-state-machine.md` | 任务状态机 + 黑板协议（吸收 coding-agent-os §10-11/§28.4）：状态外置/转移表/五态映射/黑板规则/多代理单代理默认；脚本 task-state.py |
 | 21 | `references/21-context-engineering.md` | 上下文工程检索协议（吸收 §7/§16）：检索 6 步/按类预算 A-B-C/排除清单/压缩时机；SKILL §7 的动态层 |
 | 22 | `references/22-repair-escalation.md` | 修复升级阶梯 L0-L5（吸收 §6.6/§13/§28.8）：重试预算/失败类感知/熔断/L5 人类一等终态；§7 修复总预算 max_repair_attempts=3、§8 Diff Risk Scoring（C1-5）；与 ref-18 合并关系 |
 | 23 | `references/23-pipeline-automation.md` | 流水线自动化与门禁（评估报告落地）：pre-commit 门禁（git-pre-commit.py + install-hooks.py）/ ci-smoke 定时冒烟 / 月检+周度调度自动化 / bandit recommend 接线 |
 | 24 | `references/24-gh-security.md` | 远程执行引擎（GH Actions）安全设计（GH 方案 §2/§3/§16，C1-6）：installation token 最小权限表 + GITHUB_TOKEN 优先 + OIDC 指针 + Tool Layer 抽象（Agent 不拼 API） |
-| 17 | `references/17-agent-doctor.md` | Agent Doctor 架构（AI Ops 控制平面，本地文档指针）——状态化路由/验证五态/风险分层的设计依据；吸收映射与排除项（§4/§5.6/§10.9 来源） |
-| 18 | `references/18-debug-diagnosis.md` | Debug 诊断协议——确定性先行清单 → 假设-证据-实验环 → 验证五态判定 → 问题案例库（§1 Debug / §5.6 落地细则） |
+| 25 | `references/25-resourceos.md` | ResourceOS 统一资源操作系统（40 节，指针引用）——**架构对齐参考**而非蓝图：采纳条款索引（能力词表/健康态/依赖图/声誉时间维度/trace 主键）+ 8 项排除清单（向量检索·注册中心 API·Policy Engine 等，依其 §34 规模驱动原则否决）；R-1..R-10 票号与批次（P0 已落地 / P1→v2.15.0 / P2→v2.16.0） |
 
 ---
 

@@ -39,6 +39,11 @@ TARGETS = [  # (path, pattern kind)
     (SDK_ROOT / "SKILL.md", "title"),
     (SDK_ROOT / "README.md", "blurb"),
     (SDK_ROOT / "README.md", "version-line"),
+    # T-511（F-60）：version-check 从 5 点扩到 7 点，bump 必须同步这两枚戳，
+    # 否则下一次 bump 会立刻把新闸打红（闸门与发布工具必须成对改）。
+    # 戳缺失时下面两个 kind 的 subn 计数为 0，plan 里不出现，不阻塞。
+    (SDK_ROOT / "ENGINEERING.md", "engineering-head"),
+    (SDK_ROOT / "ALIGNMENT.md", "alignment-head"),
 ]
 CHANGELOG = SDK_ROOT / "CHANGELOG.md"
 
@@ -92,6 +97,13 @@ def plan_edits(old: str, new: str) -> list[dict]:
         elif kind == "blurb":
             # README first line: "> MoE 特化编程技能 SDK（vX.Y.Z）——..."
             pat = re.compile(r"(MoE 特化编程技能 SDK（)" + re.escape(old) + r"(）——)")
+        elif kind == "engineering-head":
+            # ENGINEERING.md 第 3 行：`> vX.Y.Z · YYYY-MM-DD · …`
+            pat = re.compile(r"(^> )" + re.escape(old) + r"( ·)", re.M)
+        elif kind == "alignment-head":
+            # ALIGNMENT.md 头部：`> 吸收对象本体：`user-vibe_coding-sdk-moe`（vX.Y.Z）`
+            pat = re.compile(r"(吸收对象本体：`user-vibe_coding-sdk-moe`（)"
+                             + re.escape(old) + r"(）)")
         else:  # version-line: ">- 版本：**vX.Y.Z**（..."
             pat = re.compile(r"(\*\*)" + re.escape(old) + r"(\*\*)")
         new_text, n = pat.subn(r"\g<1>" + new + r"\g<2>", text)
@@ -109,6 +121,9 @@ def apply_edits(edits: list[dict], old: str, new: str) -> None:
             "title": re.compile(r"(# user-vibe_coding-sdk-moe )" + re.escape(old) + r"( —)"),
             "blurb": re.compile(r"(MoE 特化编程技能 SDK（)" + re.escape(old) + r"(）——)"),
             "version-line": re.compile(r"(\*\*)" + re.escape(old) + r"(\*\*)"),
+            "engineering-head": re.compile(r"(^> )" + re.escape(old) + r"( ·)", re.M),
+            "alignment-head": re.compile(
+                r"(吸收对象本体：`user-vibe_coding-sdk-moe`（)" + re.escape(old) + r"(）)"),
         }
         text, n = pats[e["kind"]].subn(r"\g<1>" + new + r"\g<2>", text)
         path.write_text(text, encoding="utf-8")

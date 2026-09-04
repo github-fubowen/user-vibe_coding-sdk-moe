@@ -29,13 +29,13 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
+from _common import (EXIT_OK, EXIT_ERROR, EXIT_GATE, emit_json,
+                   now_iso, schema, build_parser, add_json_flag)
 
-SCHEMA = "patch-gate.v1"
+SCHEMA = schema("patch-gate")
 
 # cicd §15（P3 清偿 v2.10.6）：硬闸参数策略版本钉。预算参数（files/lines/deps）是
 # 策略面而非实现细节 —— 变更默认预算 = 变策略 = 必须显式 bump 本常量并在 CHANGELOG
@@ -48,9 +48,6 @@ DEP_MANIFEST_RE = re.compile(
     r"|package\.json|package-lock\.json|pnpm-lock\.yaml|yarn\.lock"
     r"|Cargo\.toml|Cargo\.lock|go\.mod|go\.sum|Pipfile.*|Gemfile.*)$", re.I)
 
-
-def now_iso() -> str:
-    return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
 
 
 def parse_numstat(text: str) -> tuple[list[str], int]:
@@ -116,7 +113,7 @@ def gate(files: list[str], changed_lines: int, max_files: int, max_lines: int,
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Patch budget gate (T-23, F-29; kernel §I)")
+    ap = build_parser("Patch budget gate (T-23, F-29; kernel §I)")
     src = ap.add_mutually_exclusive_group()
     src.add_argument("--numstat-file", default=None, help="`git diff --numstat` output file")
     src.add_argument("--diff-file", default=None, help="unified diff file")
@@ -126,7 +123,7 @@ def main() -> int:
     ap.add_argument("--max-deps", type=int, default=1)
     ap.add_argument("--policy-version", default=None,
                     help="caller-pinned gate policy version (cicd §15); mismatch → exit 2")
-    ap.add_argument("--json", action="store_true")
+    add_json_flag(ap)
     args = ap.parse_args()
 
     if args.policy_version and args.policy_version != POLICY_VERSION:  # §15 策略版本钉
@@ -134,7 +131,7 @@ def main() -> int:
               f"gate enforces {POLICY_VERSION!r} — budget params are policy, bump the "
               f"POLICY_VERSION constant (with CHANGELOG) if the change is intended",
               file=sys.stderr)
-        return 2
+        return EXIT_GATE
 
     files: list[str] = []
     changed = 0
@@ -142,23 +139,23 @@ def main() -> int:
         p = Path(args.numstat_file)
         if not p.exists():
             print(f"[fatal] numstat file not found: {p}", file=sys.stderr)
-            return 2
+            return EXIT_GATE
         try:
             files, changed = parse_numstat(p.read_text(encoding="utf-8", errors="replace"))
         except ValueError as e:  # F-53：畸形 numstat → 干净拦截（exit 2），非裸 traceback
             print(f"[fatal] patch-gate: {e}", file=sys.stderr)
-            return 2
+            return EXIT_GATE
     elif args.diff_file:
         p = Path(args.diff_file)
         if not p.exists():
             print(f"[fatal] diff file not found: {p}", file=sys.stderr)
-            return 2
+            return EXIT_GATE
         files, changed = parse_unified_diff(p.read_text(encoding="utf-8", errors="replace"))
     elif args.stat:
         m = re.fullmatch(r"\s*(\d+)\s*,\s*(\d+)\s*", args.stat)
         if not m:
             print('[fatal] --stat format: "<files>,<added+deleted>" e.g. "7,320"', file=sys.stderr)
-            return 2
+            return EXIT_GATE
         files, changed = [], int(m.group(2))
         rep = gate(files, changed, args.max_files, args.max_lines, args.max_deps)
         rep["files_declared"] = int(m.group(1))
@@ -167,19 +164,19 @@ def main() -> int:
             rep["exceeded"].append(f"files {rep['files_declared']} > {args.max_files}")
             rep["recommended_action"] = "ESCALATED"
         _emit(rep, args)
-        return 0 if rep["ok"] else 2
+        return EXIT_OK if rep["ok"] else EXIT_GATE
     else:
         print("[fatal] no diff source: use --numstat-file / --diff-file / --stat", file=sys.stderr)
-        return 2
+        return EXIT_GATE
 
     rep = gate(files, changed, args.max_files, args.max_lines, args.max_deps)
     _emit(rep, args)
-    return 0 if rep["ok"] else 2
+    return EXIT_OK if rep["ok"] else EXIT_GATE
 
 
 def _emit(rep: dict, args) -> None:
     if args.json:
-        print(json.dumps(rep, ensure_ascii=False, indent=2))
+        emit_json(rep)
     else:
         mark = "OK " if rep["ok"] else "!! "
         print(f"== patch-gate: {mark}files={rep['files']} lines={rep['changed_lines']} "

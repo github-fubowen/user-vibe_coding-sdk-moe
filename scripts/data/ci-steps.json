@@ -1,0 +1,76 @@
+{
+  "schema": "ci-steps.v1",
+  "note": "ci-smoke 步骤清单（R-5, ResourceOS §17/§22）。七步 cheapest-first：tier 0 秒级闸先行，失败即短路；加第 8 步 = 改本文件一行，ci-smoke.py 无需改动。args 中 @data/<file> 展开为 scripts/data/<file>，@sdk 展开为 SDK 根目录。",
+  "steps": [
+    {
+      "name": "version-check",
+      "script": "version-check.py",
+      "args": ["--json"],
+      "timeout": 60,
+      "tier": 0,
+      "optional": false,
+      "skip_flag": null,
+      "note": "T-16（F-26）：最便宜的闸先跑 —— 版本串失配 / CHANGELOG 顺序倒置秒级检出，避免 4 分钟全量套件跑完才发现红灯"
+    },
+    {
+      "name": "selfcheck-static",
+      "script": "selfcheck-static.py",
+      "args": ["--quiet"],
+      "timeout": 60,
+      "tier": 0,
+      "optional": false,
+      "skip_flag": null,
+      "note": "v2.10.1（F-43 治本）：frontmatter / refs / 脚本存在性 / toolstack 完整性四项秒级静态自检"
+    },
+    {
+      "name": "robustness-suite",
+      "script": "robustness-suite.py",
+      "args": ["--json"],
+      "timeout": 600,
+      "tier": 1,
+      "optional": false,
+      "skip_flag": null,
+      "note": "全量鲁棒性回归；失败时 ci-smoke 会点名失败用例（F-55）"
+    },
+    {
+      "name": "golden v2 validate",
+      "script": "golden-run.py",
+      "args": ["--set", "@data/golden-set-v2.json", "--validate-set", "--json"],
+      "timeout": 120,
+      "tier": 1,
+      "optional": false,
+      "skip_flag": null,
+      "note": "金标集 v2 结构校验（离线）"
+    },
+    {
+      "name": "golden v3 validate",
+      "script": "golden-run.py",
+      "args": ["--set", "@data/golden-set-v3.json", "--validate-set", "--json"],
+      "timeout": 120,
+      "tier": 1,
+      "optional": false,
+      "skip_flag": null,
+      "note": "金标集 v3 结构校验（离线）"
+    },
+    {
+      "name": "golden v3 offline",
+      "script": "golden-run.py",
+      "args": ["--offline", "--set", "@data/golden-set-v3.json", "--json"],
+      "timeout": 120,
+      "tier": 1,
+      "optional": false,
+      "skip_flag": null,
+      "note": "金标集 v3 离线回归（判分规则对齐，零网络）"
+    },
+    {
+      "name": "privacy-scan",
+      "script": "privacy-scan.py",
+      "args": ["@sdk", "--json"],
+      "timeout": 180,
+      "tier": 2,
+      "optional": true,
+      "skip_flag": "skip_privacy",
+      "note": "公开推送前隐私扫描；--skip-privacy 可跳过（skillhub 元文件批量改动期）"
+    }
+  ]
+}

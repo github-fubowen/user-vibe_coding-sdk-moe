@@ -1,6 +1,6 @@
 # user-vibe_coding-sdk-moe
 
-> MoE 特化编程技能 SDK（v2.10.6）——为 Mixture-of-Experts 系大模型（DeepSeek V4 / Qwen3.5-Max / Kimi K2 / GLM-4.6 / MiniMax M2 / Doubao / Hunyuan / Step）调优的编码工作流。
+> MoE 特化编程技能 SDK（v2.10.12）——为 Mixture-of-Experts 系大模型（DeepSeek V4 / Qwen3.5-Max / Kimi K2 / GLM-4.6 / MiniMax M2 / Doubao / Hunyuan / Step）调优的编码工作流。
 
 **设计依据**：5 份 CN MoE 调研报告（2026-08）+ 2 份 Coding Agent 架构/技术栈调研（2026-08-30，AgentOS / 主流 Harness 技术栈）。**三大目标，一套协议**：① 最大化输出质量 ② 最小化 token 消耗 ③ 强制英文思维链。
 
@@ -14,7 +14,7 @@
 - **稳定前缀缓存**：固定指令前置、易变内容后置，命中 DeepSeek 等缓存可省 ~90% 成本。
 - **Token 预算六大闸门**（G1–G6）：上下文最小化、渐进式披露、静态工具路由、max_tokens 余量、稳定前缀、廉价模型卸载。
 - **输出质量闸门**：压制拟人化尾巴、引用溯源、交付前自检、确定性采样。
-- **渐进式披露**：主文件 ~37KB + 23 个 references 按需加载。
+- **渐进式披露**：主文件 ~36KB + 23 个 references 按需加载。
 - **Token 脚本化流水线**（ref-19，9 脚本全实现）：probe-tools（会话工具探测单次化）/ verify-runner（确定性验证闸）/ bump-version（版本 bump 单命令）/ golden-run（金标回归 1 命令化，结构性判分零 LLM）/ error-sig + case-search（Debug 零 LLM 首轮）/ env-snapshot（环境快照）/ review-prefilter（Review 关注包）/ token-meter（G4/G6 计量）。
 - **Agent Doctor 控制面纪律吸收**（ref-17/18）：状态化路由（Pareto 硬过滤 + 强制 fallback_chain + cheap-first 级联）、Debug 诊断协议（确定性先行 → 假设-证据-实验环）、验证五态（UNKNOWN/REGRESSION 一等公民）、风险分层操作门（tier 0–4，tier 4 必人批）。
 - **工具栈维护流水线**（ref-15）：`scripts/toolstack-pipeline.py` 七阶段自动化（probe→diff→data SHA256→**sdk_tools 差集**→report→update→commit→push-gate），gh api 上游核对 + SHA256 数据完整性 + push 显式确认门禁；`--update` 自动登记新脚本（仅增不删）。
@@ -52,8 +52,9 @@ bash install.sh
 
 ```
 user-vibe_coding-sdk-moe/
-├── SKILL.md                     # 主文件（~37KB，实测 38,375B 2026-09-02，协议全文，静态前缀）
-├── CHANGELOG.md                 # 版本历史（渐进披露，不进热路径）
+├── SKILL.md                     # 主文件（~36KB，实测 36,950B 2026-09-03，协议全文，静态前缀）
+├── CHANGELOG.md                 # 版本历史·近期（渐进披露，不进热路径）
+├── CHANGELOG-archive.md         # 版本历史·归档（v1.x 时代等 >30 天条目，F-62 策略）
 ├── ALIGNMENT.md                 # Coding Agent OS → SDK 落地映射总表（29 节，v2.4.0）
 ├── ENGINEERING.md               # 工程手册（架构/组件/数据流/门禁/操作规程，v2.7.0）
 ├── README.md                    # 本文件
@@ -78,7 +79,8 @@ user-vibe_coding-sdk-moe/
 │   ├── review-prefilter.py      # Review 预过滤精简关注包（ref-19）
 │   ├── token-meter.py           # token 计量与指标表（ref-19，G4/G6；传 --budget 超限 → exit 2，F-50）
 │   ├── diff-risk.py             # 补丁风险确定性评分（ref-22 §8，>0.7 → exit 2 人工，fail-closed）
-│   ├── robustness-suite.py      # 鲁棒性回归套件 190 用例（ref-19，--only/--json/--timing/--quick）
+│   ├── robustness-suite.py      # 鲁棒性回归套件（ref-19，--only/--json/--timing/--quick；用例数以 --json 的 total 为准，不写死——F-64）
+│   ├── cases/                   # 声明式用例 manifest（v2.10.12 F-59 Phase 1：eval/gates/router/release/pipeline 五域 JSON，schema robustness-cases.v1）
 │   ├── gh-workflow-check.py     # .github 结构校验（C2-3，dispatch 契约 + reusable-only）
 │   ├── privacy-scan.py          # 隐私泄漏扫描（ref-23，fail-closed）
 │   ├── git-pre-commit.py        # 提交前门禁（ref-23，robustness 子集 + data + privacy + v2.10.2 selfcheck 闸，fail-closed）
@@ -142,6 +144,6 @@ user-vibe_coding-sdk-moe/
 
 ## 📌 版本与许可
 
-- 版本：**v2.10.6**（changelog 见 `CHANGELOG.md`；每次编辑即提交，遵循自版本管理）
+- 版本：**v2.10.12**（changelog 见 `CHANGELOG.md`；每次编辑即提交，遵循自版本管理）
 - ref-10（ARS-Codex）为 **CC BY-NC 4.0** 指针引用（不 vendored），其余内容可自由使用。
 - 依赖：无第三方依赖；Python 环境可选（工具链建议 uv）。

@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import random
 import sqlite3
 import sys
@@ -197,7 +198,95 @@ def beta_sample(alpha: float, beta: float, rng: random.Random) -> float:
     return x / (x + y)
 
 
-def recommend(db_path: Path, cell: str, top: int, seed: int | None, priors: dict) -> dict:
+# --- R-8: 声誉的时间维度（ResourceOS §18）-------------------------------------
+# bandit 后验是**累积**统计：一个曾经很好、近期持续退化的模型，旧的成功记录会继续
+# 给它背书。补两个时间维度：EMA 成功率（近期权重高）+ freshness decay（距最近一次
+# 成功越久，置信越低）。两者相乘即 confidence，与 Thompson 排名**并列展示**——
+# bandit 仍只是建议（§4 裁决不变），confidence 用来解释"这个建议有多可信"。
+EMA_HALF_LIFE_CALLS = 30       # EMA 半衰期（次调用）
+FRESHNESS_DECAY_PER_DAY = 0.05  # exp(-decay × 天数)，半衰期 ≈ ln2/0.05 ≈ 13.9 天
+MIN_SAMPLE = 5                 # 低于此样本量 → insufficient → 回退静态矩阵
+# infra_fail 不进后验（F-01 既有裁决），EMA 同样排除 —— 基础设施抖动不算模型能力。
+EMA_SKIP_OUTCOMES = {"infra_fail"}
+
+
+def ema_freshness(conn: sqlite3.Connection, cell: str, models: list[str],
+                  half_life: int = EMA_HALF_LIFE_CALLS,
+                  decay: float = FRESHNESS_DECAY_PER_DAY,
+                  now: datetime | None = None) -> dict[str, dict]:
+    """按 (cell, model) 算 EMA 成功率 + freshness 衰减 → confidence。
+
+    EMA 权重：alpha = 0.5 ** (1/half_life)，按时间序逐条更新，越近的观测权重越高。
+    freshness：exp(-decay × 距最近一次 pass 的天数)；从无成功 → confidence = 0。
+    """
+    now = now or datetime.now(timezone.utc)
+    rows = conn.execute(
+        "SELECT model, outcome, ts FROM routing_log WHERE cell=? ORDER BY ts, rowid",
+        (cell,)).fetchall()
+    series: dict[str, list[tuple[str, str]]] = {}
+    for model, outcome, ts in rows:
+        if model not in series:
+            series[model] = []
+        series[model].append((outcome or "", ts or ""))
+
+    alpha = 0.5 ** (1.0 / half_life) if half_life > 0 else 1.0
+    out: dict[str, dict] = {}
+    for model in models:
+        seq = series.get(model, [])
+        ema: float | None = None
+        counted = 0
+        last_success: datetime | None = None
+        for outcome, ts in seq:
+            if outcome in EMA_SKIP_OUTCOMES:
+                continue
+            counted += 1
+            val = 1.0 if outcome == "pass" else 0.0
+            ema = val if ema is None else (alpha * ema + (1 - alpha) * val)
+            if outcome == "pass":
+                dt = _parse_ts(ts)
+                if dt is not None and (last_success is None or dt > last_success):
+                    last_success = dt
+        if ema is None or counted == 0:
+            out[model] = {"ema": None, "trials": 0, "last_success": None,
+                          "freshness_days": None, "confidence": 0.0,
+                          "insufficient": True}
+            continue
+        if last_success is None:
+            freshness_days = None
+            freshness = 0.0
+        else:
+            freshness_days = max(0.0, (now - last_success).total_seconds() / 86400.0)
+            freshness = math.exp(-decay * freshness_days)
+        out[model] = {
+            "ema": round(ema, 4),
+            "trials": counted,
+            "last_success": last_success.isoformat() if last_success else None,
+            "freshness_days": (round(freshness_days, 2) if freshness_days is not None else None),
+            "freshness": round(freshness, 4) if last_success else 0.0,
+            "confidence": round(ema * freshness, 4),
+            "insufficient": counted < MIN_SAMPLE,
+        }
+    return out
+
+
+def _parse_ts(ts: str) -> datetime | None:
+    """routing_log.ts 是 ISO 8601（可能带 +08:00 或 Z）。解析失败返回 None。"""
+    if not ts:
+        return None
+    s = ts.strip().replace("Z", "+00:00")
+    try:
+        dt = datetime.fromisoformat(s)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def recommend(db_path: Path, cell: str, top: int, seed: int | None, priors: dict,
+              half_life: int = EMA_HALF_LIFE_CALLS,
+              decay: float = FRESHNESS_DECAY_PER_DAY,
+              min_sample: int = MIN_SAMPLE) -> dict:
     conn = connect(db_path)
     rows = conn.execute(
         "SELECT model, alpha, beta, n, success_count, cost_sum, tokens_sum"
@@ -219,9 +308,35 @@ def recommend(db_path: Path, cell: str, top: int, seed: int | None, priors: dict
             "cost_per_task": round(cost_per_task, 5),
             "utility": utility,
         })
+    # R-8：EMA 成功率 + freshness decay（时间维度）。与 Thompson 排名并列输出，
+    # 不改排名本身 —— bandit 仍只是建议（§4），confidence 负责解释可信度。
+    hf = ema_freshness(conn, cell, [r[0] for r in rows], half_life=half_life,
+                       decay=decay)
+    for c in candidates:
+        m = hf.get(c["model"], {})
+        c["ema"] = m.get("ema")
+        c["freshness_days"] = m.get("freshness_days")
+        c["confidence"] = m.get("confidence")
+        # 低样本不谎报：明确标记 insufficient，调用方应回退静态矩阵（§4）
+        c["confidence_label"] = ("insufficient" if (m.get("trials", 0) < min_sample)
+                                 else "ok")
+        c["trials"] = m.get("trials", 0)
     candidates.sort(key=lambda r: (-r["utility"], -r["n"]))
+    insufficient = [c["model"] for c in candidates if c["confidence_label"] == "insufficient"]
     out = {"schema": "diagnostic.v1", "cell": cell, "no_data": not candidates,
-           "top": candidates[:top]}
+           "top": candidates[:top],
+           "reputation": {
+               "ema_half_life_calls": half_life,
+               "freshness_decay_per_day": decay,
+               "min_sample": min_sample,
+           },
+           # 全部候选都低样本 → 排名不可信，明确要求回退静态矩阵（§4 静态矩阵 + §10.9 硬过滤）
+           "insufficient": insufficient,
+           "fallback_to_static": bool(candidates) and len(insufficient) == len(candidates),
+           "fallback_reason": ("所有候选样本量 < %d，bandit 建议不可信 —— "
+                               "回退 SKILL §4 静态矩阵 + 硬过滤" % min_sample
+                               ) if (candidates and len(insufficient) == len(candidates)) else None,
+           }
     if not candidates and priors:
         out["priors"] = priors  # cold-start seeds (§28.11): {model: success_rate}
     conn.close()
@@ -461,6 +576,14 @@ def main() -> int:
     rc.add_argument("--top", type=int, default=3)
     rc.add_argument("--seed", type=int, default=None, help="fix sampling for reproducibility")
     rc.add_argument("--priors", default=None, help='JSON: {"model": success_rate} cold-start seeds')
+    # R-8：时间维度参数（阈值常量可配，防"一次调参改死一片"）
+    rc.add_argument("--ema-half-life", type=int, default=EMA_HALF_LIFE_CALLS,
+                    help=f"EMA 成功率半衰期（次调用，默认 {EMA_HALF_LIFE_CALLS}）")
+    rc.add_argument("--freshness-decay", type=float, default=FRESHNESS_DECAY_PER_DAY,
+                    help=f"freshness 每日衰减系数（默认 {FRESHNESS_DECAY_PER_DAY}，"
+                         f"半衰期 ≈ 13.9 天）")
+    rc.add_argument("--min-sample", type=int, default=MIN_SAMPLE,
+                    help=f"低于此样本量判 insufficient 并回退静态矩阵（默认 {MIN_SAMPLE}）")
 
     rp = sub.add_parser("report", help="calibration + cost/token metrics")
     add_db(rp)
@@ -501,7 +624,9 @@ def main() -> int:
 
     if args.cmd == "recommend":
         priors = json.loads(args.priors) if args.priors else {}
-        out = recommend(db, args.cell, args.top, args.seed, priors)
+        out = recommend(db, args.cell, args.top, args.seed, priors,
+                        half_life=args.ema_half_life, decay=args.freshness_decay,
+                        min_sample=args.min_sample)
         print(json.dumps(out, ensure_ascii=False, indent=2))
         return 0
 

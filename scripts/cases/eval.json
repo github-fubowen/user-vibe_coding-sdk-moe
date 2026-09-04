@@ -1,0 +1,420 @@
+{
+  "schema": "robustness-cases.v1",
+  "domain": "eval",
+  "comment": "F-59 Phase 1：声明式用例外置。来源=build_cases 内 C() 常量参数用例（AST 提取保真迁移，v2.10.12）；args 支持 {tmp} 占位符。",
+  "cases": [
+    {
+      "name": "golden-run: --help",
+      "script": "golden-run.py",
+      "args": [
+        "--help"
+      ],
+      "expect": 0,
+      "want": [
+        "usage"
+      ]
+    },
+    {
+      "name": "golden-run: missing --set",
+      "script": "golden-run.py",
+      "args": [],
+      "expect": 2,
+      "want": [
+        "required"
+      ]
+    },
+    {
+      "name": "golden-run: nonexistent set",
+      "script": "golden-run.py",
+      "args": [
+        "--set",
+        "{tmp}/nope.json"
+      ],
+      "expect": 2,
+      "want": [
+        "not found"
+      ]
+    },
+    {
+      "name": "golden-run: empty samples",
+      "script": "golden-run.py",
+      "args": [
+        "--set",
+        "{tmp}/empty.json"
+      ],
+      "expect": 2,
+      "want": [
+        "no samples"
+      ]
+    },
+    {
+      "name": "golden-run: validate-set bad regex",
+      "script": "golden-run.py",
+      "args": [
+        "--set",
+        "{tmp}/badregex.json",
+        "--validate-set"
+      ],
+      "expect": 2,
+      "want": [
+        "regex compile failed"
+      ]
+    },
+    {
+      "name": "golden-run: validate-set ok set",
+      "script": "golden-run.py",
+      "args": [
+        "--set",
+        "{tmp}/ok.json",
+        "--validate-set"
+      ],
+      "expect": 0,
+      "want": [
+        "VALID"
+      ]
+    },
+    {
+      "name": "golden-run: bad regex offline judge",
+      "script": "golden-run.py",
+      "args": [
+        "--set",
+        "{tmp}/badregex.json",
+        "--offline"
+      ],
+      "expect": 2,
+      "want": [
+        "bad accept rule"
+      ]
+    },
+    {
+      "name": "golden-run: no accept key",
+      "script": "golden-run.py",
+      "args": [
+        "--set",
+        "{tmp}/noaccept.json",
+        "--offline"
+      ],
+      "expect": 2,
+      "want": [
+        "no accept rules"
+      ]
+    },
+    {
+      "name": "golden-run: LLM conn refused",
+      "script": "golden-run.py",
+      "args": [
+        "--set",
+        "{tmp}/ok.json",
+        "--llm-url",
+        "http://localhost:1/v1",
+        "--timeout",
+        "3"
+      ],
+      "expect": 2,
+      "want": [
+        "LLM call failed"
+      ]
+    },
+    {
+      "name": "verify-runner: bad JSON config",
+      "script": "verify-runner.py",
+      "args": [
+        "--config",
+        "{tmp}/bad.json"
+      ],
+      "expect": 2,
+      "want": [
+        "invalid JSON"
+      ]
+    },
+    {
+      "name": "verify-runner: cmd not found",
+      "script": "verify-runner.py",
+      "args": [
+        "--json",
+        "--cmd",
+        "definitely-not-a-real-cmd-xyz"
+      ],
+      "expect": 2,
+      "want": [
+        "exit_code",
+        "127"
+      ]
+    },
+    {
+      "name": "verify-runner: layers all pass",
+      "script": "verify-runner.py",
+      "args": [
+        "--config",
+        "{tmp}/layers-ok.json"
+      ],
+      "expect": 0,
+      "want": [
+        "ALL PASS"
+      ]
+    },
+    {
+      "name": "verify-runner: layers short-circuit",
+      "script": "verify-runner.py",
+      "args": [
+        "--config",
+        "{tmp}/layers-fail.json"
+      ],
+      "expect": 2,
+      "want": [
+        "short-circuit"
+      ]
+    },
+    {
+      "name": "verify-runner: layers missing cmd",
+      "script": "verify-runner.py",
+      "args": [
+        "--config",
+        "{tmp}/layers-bad.json"
+      ],
+      "expect": 2,
+      "want": [
+        "missing 'cmd'"
+      ]
+    },
+    {
+      "name": "golden-run: record outcomes",
+      "script": "golden-run.py",
+      "args": [
+        "--offline",
+        "--set",
+        "{tmp}/ok.json",
+        "--record",
+        "{tmp}/rec.db"
+      ],
+      "expect": 0,
+      "want": [
+        "[record]"
+      ]
+    },
+    {
+      "name": "case-search: nonexistent dir",
+      "script": "case-search.py",
+      "args": [
+        "--q",
+        "x",
+        "--dir",
+        "{tmp}/nodir"
+      ],
+      "expect": 0
+    },
+    {
+      "name": "verify-runner: allow_missing 跳过缺失工具",
+      "script": "verify-runner.py",
+      "args": [
+        "--config",
+        "{tmp}/layers-missing.json",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "skipped"
+      ]
+    },
+    {
+      "name": "golden-run: cost 实算（有价格表）",
+      "script": "golden-run.py",
+      "args": [
+        "--offline",
+        "--set",
+        "{tmp}/ok.json",
+        "--record",
+        "{tmp}/cost.db",
+        "--price-per-1k",
+        "0.002",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"cost_basis\": \"flat\""
+      ]
+    },
+    {
+      "name": "golden-run: 无价格表显式标注 none",
+      "script": "golden-run.py",
+      "args": [
+        "--offline",
+        "--set",
+        "{tmp}/ok.json",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"cost_basis\": \"none\""
+      ]
+    },
+    {
+      "name": "golden-run: usage 虚报仍判 empty",
+      "script": "golden-run.py",
+      "args": [
+        "--offline",
+        "--set",
+        "{tmp}/empty-usage.json",
+        "--json"
+      ],
+      "expect": 2,
+      "want": [
+        "\"empty\": 1",
+        "\"infra_failures\": 1"
+      ],
+      "dont": [
+        "\"quality\": 1"
+      ]
+    },
+    {
+      "name": "verify-runner: confidence 0.9 light",
+      "script": "verify-runner.py",
+      "args": [
+        "--config",
+        "{tmp}/conf-layers.json",
+        "--confidence",
+        "0.9"
+      ],
+      "expect": 0,
+      "want": [
+        "[depth] light"
+      ],
+      "dont": [
+        "test-full"
+      ]
+    },
+    {
+      "name": "verify-runner: confidence 0.5 medium",
+      "script": "verify-runner.py",
+      "args": [
+        "--config",
+        "{tmp}/conf-layers.json",
+        "--confidence",
+        "0.5"
+      ],
+      "expect": 0,
+      "want": [
+        "[depth] medium",
+        "typecheck"
+      ],
+      "dont": [
+        "test-full"
+      ]
+    },
+    {
+      "name": "verify-runner: confidence 0.2 full",
+      "script": "verify-runner.py",
+      "args": [
+        "--config",
+        "{tmp}/conf-layers.json",
+        "--confidence",
+        "0.2"
+      ],
+      "expect": 0,
+      "want": [
+        "[depth] full",
+        "test-full"
+      ]
+    },
+    {
+      "name": "verify-runner: confidence 越界拒绝",
+      "script": "verify-runner.py",
+      "args": [
+        "--config",
+        "{tmp}/conf-layers.json",
+        "--confidence",
+        "1.5"
+      ],
+      "expect": 2,
+      "want": [
+        "within [0, 1]"
+      ]
+    },
+    {
+      "name": "verify-runner: layers 显式优先于 confidence",
+      "script": "verify-runner.py",
+      "args": [
+        "--config",
+        "{tmp}/conf-layers.json",
+        "--layers",
+        "syntax",
+        "--confidence",
+        "0.2"
+      ],
+      "expect": 0,
+      "want": [
+        "explicit"
+      ]
+    },
+    {
+      "name": "verify-runner: security 恒保（0.9 light）",
+      "script": "verify-runner.py",
+      "args": [
+        "--config",
+        "{tmp}/conf-sec.json",
+        "--confidence",
+        "0.9"
+      ],
+      "expect": 0,
+      "want": [
+        "[depth] light",
+        "security"
+      ],
+      "dont": [
+        "test-full"
+      ]
+    },
+    {
+      "name": "verify-runner: security 恒保（0.5 medium）",
+      "script": "verify-runner.py",
+      "args": [
+        "--config",
+        "{tmp}/conf-sec.json",
+        "--confidence",
+        "0.5"
+      ],
+      "expect": 0,
+      "want": [
+        "[depth] medium",
+        "security",
+        "typecheck"
+      ],
+      "dont": [
+        "test-full"
+      ]
+    },
+    {
+      "name": "verify-runner: 无 security 配置时不虚增层",
+      "script": "verify-runner.py",
+      "args": [
+        "--config",
+        "{tmp}/conf-layers.json",
+        "--confidence",
+        "0.9"
+      ],
+      "expect": 0,
+      "want": [
+        "[depth] light"
+      ],
+      "dont": [
+        "security",
+        "test-full"
+      ]
+    },
+    {
+      "name": "verify-runner: --layers 别名匹配 typecheck（T-18 显式别名表）",
+      "script": "verify-runner.py",
+      "args": [
+        "--config",
+        "{tmp}/conf-layers.json",
+        "--layers",
+        "type",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "typecheck"
+      ]
+    }
+  ]
+}

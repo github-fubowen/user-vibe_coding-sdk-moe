@@ -135,6 +135,27 @@ python scripts/task-state.py --tasks-dir .workbuddy/tasks resume --task t-001   
 事件台账行格式（append-only，survey G4）：`{"ts","event":"transition","task","from","to","verdict","actor"}`——
 `--actor` 标注执行者（agent/子代理类名，配合 §7.1 权限矩阵）；ledger 写失败仅告警不阻断（任务 JSON 是主真相源）。
 
+### 6.1 幂等键（v2.10.0，T-26 —— agentic-cicd 原则 9）
+
+**问题**：重试与重放是两回事，但状态机此前分不清。PLAN→IMPLEMENT 已生效后再收到同一条
+指令（网络重投 / 子代理重发 / 人类重贴命令），若直接判"非法转移"会报 `illegal` 并**计入
+修复预算**——等于把一次网络抖动变成一次失败修复（F-35 实测）。
+
+**闸**：`transition --idempotency-key <k>`
+
+| 情形 | 判据 | 行为 |
+|---|---|---|
+| 首次应用 | key 未见 | 正常转移，记录 `{k: {to, ts}}` |
+| **同键同目标**（真重放） | `seen.to == nxt` | **no-op 返回 0**，不耗修复预算，事件记 `duplicate_ignored` |
+| **同键换目标**（调用方 bug） | `seen.to != nxt` | **exit 2** —— 同一把钥匙要求两个去处，是调用方错误，不是重放 |
+
+**顺序**：本闸必须**先于**合法性 / 预算 / 振荡闸。真正的重放发生在 `cur == 已应用目标态` 时
+（PLAN→IMPLEMENT 生效后重试，`cur` 已是 IMPLEMENT），此时合法性检查会先报 `illegal` ——
+幂等键要在它之前接住。
+
+幂等键与非幂等工具是一对：`action-gate.py` 读 toolstack.json 的 `idempotent` 字段，非幂等
+工具的重试**必须**带幂等键（ref-19 §2.7，T-25 的配套约束）。
+
 ## 7. 多代理行（§15 吸收，指针式）
 
 - **默认单代理**：一条主链完成任务，避免协调开销（token/延迟双耗）；

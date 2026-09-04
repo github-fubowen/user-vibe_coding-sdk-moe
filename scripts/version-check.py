@@ -19,7 +19,14 @@ Checks (all fail-closed):
   4. README.md 「版本：」行版本串
   5. CHANGELOG.md 首个 `## vX.Y.Z` 版本串
   6. CHANGELOG.md 条目顺序严格递减（首个即最新）且无重复条目
-Above 1-5 must all be equal; 6 must hold.
+  7. ENGINEERING.md 头部 `> vN.N.N ·` 版本戳（T-511/F-60）
+  8. ALIGNMENT.md 头部「吸收对象本体 …（vN.N.N）」版本戳（T-511/F-60）
+Above 1-5 and 7-8 must all be equal; 6 must hold.
+
+7-8 的容错原则（R-B1）：**缺戳 → warning 不 fail，错戳 → fail**。
+理由：这两份文档是"工程视图 / 架构映射"，不是发布物；没有戳只是漏标，
+戳错了则是**明确记录了错误信息**，性质不同 —— 正如"没写注释"和"写错注释"。
+文件缺失同样只 warning（fixture 文档根没有这两份文件，不得因此 fail-closed）。
 
 Exit: 0 = consistent / 2 = any mismatch or ordering violation.
 
@@ -42,6 +49,11 @@ SDK_DIR = SCRIPT_DIR.parent
 SCHEMA = "version-check.v1"
 VER_RE = re.compile(r"v\d+\.\d+\.\d+")
 CL_HEAD_RE = re.compile(r"^## (v\d+\.\d+\.\d+)", re.M)
+# T-511（F-60）：两份非热路径文档的头部版本戳。格式解析容错见 docstring ——
+# 缺戳 warning、错戳 fail。ERR_HEAD 形如 `> v2.10.1 · 2026-09-01 · …`
+ENG_HEAD_RE = re.compile(r"^>\s*(v\d+\.\d+\.\d+)\s*·", re.M)
+# ALIGNMENT 有多个「吸收对象：」行，但「吸收对象本体：」全文件只出现一次
+ALIGN_BODY_RE = re.compile(r"吸收对象本体：[^\n]*?(v\d+\.\d+\.\d+)")
 
 
 def _read(path: Path) -> str:
@@ -103,6 +115,24 @@ def check(root: Path) -> dict:
                 "problems": ["CHANGELOG.md has no `## vX.Y.Z` entry heading"]}
     versions["changelog_top"] = cl_heads[0]
 
+    # --- 1b) 文档头部版本戳（T-511 / F-60，容缺口戳、拦错戳）---
+    warnings: list[str] = []
+    for key, fname, rx, hint in (
+        ("engineering_head", "ENGINEERING.md", ENG_HEAD_RE, "`> vN.N.N · …`"),
+        ("alignment_head", "ALIGNMENT.md", ALIGN_BODY_RE, "「吸收对象本体：…（vN.N.N）」"),
+    ):
+        p = root / fname
+        if not p.exists():
+            warnings.append(f"{fname} 缺失 —— 版本戳跳过（不 fail）")
+            versions[key] = None
+            continue
+        m = rx.search(_read(p))
+        if not m:
+            warnings.append(f"{fname} 未找到版本戳（期望 {hint}）—— 仅提示，不 fail")
+            versions[key] = None
+            continue
+        versions[key] = m.group(1)
+
     problems = []
 
     # --- 1) 版本串一致性 ---
@@ -144,6 +174,7 @@ def check(root: Path) -> dict:
         "versions": versions,
         "changelog_order_ok": order_ok,
         "changelog_top": versions["changelog_top"],
+        "warnings": warnings,
         "problems": problems,
     }
 
@@ -162,6 +193,8 @@ def main() -> int:
         for k, v in rep["versions"].items():
             print(f"  {k:<22} {v}")
         print(f"  {'changelog_order_ok':<22} {rep['changelog_order_ok']}")
+        for w in rep.get("warnings", []):
+            print(f"  [warn] {w}", file=sys.stderr)
         for p in rep["problems"]:
             print(f"  [!!] {p}", file=sys.stderr)
         print(f"version-check: {'CONSISTENT' if rep['ok'] else 'MISMATCH'}")

@@ -1,7 +1,45 @@
 {
-  "schema": 3,
+  "schema": 4,
+  "capability_vocab": [
+    "analyze.case",
+    "analyze.ci-failure",
+    "analyze.error-sig",
+    "analyze.mutation",
+    "doc.spec",
+    "docs.lookup",
+    "gate.action",
+    "gate.commit",
+    "gate.diff",
+    "git.hooks",
+    "git.push",
+    "git.version",
+    "graph.debug",
+    "graph.query",
+    "graph.review",
+    "install.cli",
+    "observe.env",
+    "observe.token",
+    "observe.trace",
+    "repair.escalation",
+    "repair.flaky",
+    "repair.regression",
+    "review.ocr",
+    "review.prefilter",
+    "route.recommend",
+    "sdd.scaffold",
+    "security.pentest",
+    "security.privacy",
+    "security.workflow",
+    "task.state",
+    "task.workspace",
+    "tool.probe",
+    "tool.register",
+    "verify.dynamic",
+    "verify.golden",
+    "verify.static"
+  ],
   "last_check": "2026-09-01T23:44:37+08:00",
-  "sdk_tools_exempt": [],
+  "sdk_tools_exempt": ["_common.py"],
   "local_tools": {
     "open-code-review (ocr)": {
       "cmd": [
@@ -13,7 +51,13 @@
       "idempotent": true,
       "timeout_ms": 30000,
       "retryable": true,
-      "group": "review"
+      "group": "review",
+      "capabilities": [
+        "review.ocr"
+      ],
+      "fallback": "code-review-graph",
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "graphify": {
       "cmd": [
@@ -25,7 +69,13 @@
       "idempotent": true,
       "timeout_ms": 30000,
       "retryable": true,
-      "group": "graph"
+      "group": "graph",
+      "capabilities": [
+        "graph.query"
+      ],
+      "fallback": "code-review-graph",
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "code-review-graph": {
       "cmd": [
@@ -39,7 +89,14 @@
       "idempotent": true,
       "timeout_ms": 30000,
       "retryable": true,
-      "group": "graph"
+      "group": "graph",
+      "capabilities": [
+        "graph.review",
+        "graph.debug"
+      ],
+      "fallback": "graphify",
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "specify (spec-kit)": {
       "cmd": [
@@ -56,7 +113,13 @@
       "idempotent": false,
       "timeout_ms": 120000,
       "retryable": true,
-      "group": "sdd"
+      "group": "sdd",
+      "capabilities": [
+        "sdd.scaffold"
+      ],
+      "fallback": null,
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "cli-hub (CLI-Anything)": {
       "cmd": [
@@ -68,7 +131,13 @@
       "idempotent": false,
       "timeout_ms": 60000,
       "retryable": false,
-      "group": "install"
+      "group": "install",
+      "capabilities": [
+        "install.cli"
+      ],
+      "fallback": null,
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "strix": {
       "cmd": [
@@ -80,7 +149,13 @@
       "idempotent": false,
       "timeout_ms": 120000,
       "retryable": false,
-      "group": "security"
+      "group": "security",
+      "capabilities": [
+        "security.pentest"
+      ],
+      "fallback": null,
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "context7 (ctx7)": {
       "cmd": [
@@ -92,7 +167,13 @@
       "idempotent": true,
       "timeout_ms": 60000,
       "retryable": true,
-      "group": "docs"
+      "group": "docs",
+      "capabilities": [
+        "docs.lookup"
+      ],
+      "fallback": null,
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "git-push": {
       "cmd": [
@@ -104,7 +185,13 @@
       "idempotent": false,
       "timeout_ms": 300000,
       "retryable": false,
-      "group": "git"
+      "group": "git",
+      "capabilities": [
+        "git.push"
+      ],
+      "fallback": null,
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     }
   },
   "refs": {
@@ -221,7 +308,13 @@
       "idempotent": true,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "gate.action"
+      ],
+      "fallback": null,
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "bump-version.py": {
       "category": "EDIT",
@@ -230,7 +323,14 @@
       "idempotent": false,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "git.version",
+        "verify.static"
+      ],
+      "fallback": null,
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "case-search.py": {
       "category": "SEARCH",
@@ -239,7 +339,13 @@
       "idempotent": true,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "analyze.case"
+      ],
+      "fallback": "error-sig.py",
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "ci-fail-analyze.py": {
       "category": "READ",
@@ -248,7 +354,13 @@
       "idempotent": true,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "analyze.ci-failure"
+      ],
+      "fallback": "error-sig.py",
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "ci-smoke.py": {
       "category": "TEST",
@@ -257,7 +369,16 @@
       "idempotent": false,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "gate.commit",
+        "verify.static",
+        "verify.golden",
+        "security.privacy"
+      ],
+      "fallback": "verify-runner.py",
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "diff-risk.py": {
       "category": "READ",
@@ -266,7 +387,13 @@
       "idempotent": true,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "gate.diff"
+      ],
+      "fallback": "patch-gate.py",
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "env-snapshot.py": {
       "category": "OBSERVE",
@@ -275,7 +402,13 @@
       "idempotent": true,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "observe.env"
+      ],
+      "fallback": null,
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "error-sig.py": {
       "category": "READ",
@@ -284,7 +417,13 @@
       "idempotent": true,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "analyze.error-sig"
+      ],
+      "fallback": "ci-fail-analyze.py",
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "flaky-check.py": {
       "category": "TEST",
@@ -293,7 +432,14 @@
       "idempotent": false,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "repair.flaky",
+        "verify.dynamic"
+      ],
+      "fallback": "regression-guard.py",
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "gh-workflow-check.py": {
       "category": "READ",
@@ -302,7 +448,13 @@
       "idempotent": true,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "security.workflow"
+      ],
+      "fallback": null,
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "git-pre-commit.py": {
       "category": "GIT",
@@ -311,7 +463,13 @@
       "idempotent": false,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "gate.commit"
+      ],
+      "fallback": null,
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "golden-run.py": {
       "category": "NETWORK",
@@ -320,7 +478,13 @@
       "idempotent": false,
       "cost_estimate": "llm",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "verify.golden"
+      ],
+      "fallback": "robustness-suite.py",
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "install-hooks.py": {
       "category": "GIT",
@@ -329,7 +493,13 @@
       "idempotent": false,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "git.hooks"
+      ],
+      "fallback": "git-pre-commit.py",
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "mutation-audit.py": {
       "category": "TEST",
@@ -339,7 +509,13 @@
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
       "runtime": "python-stdlib",
-      "note": "变异测试审计：临时改写 scripts/ 下源码（字节级还原 + sha256 校验），不可并发运行"
+      "note": "变异测试审计：临时改写 scripts/ 下源码（字节级还原 + sha256 校验），不可并发运行",
+      "capabilities": [
+        "analyze.mutation"
+      ],
+      "fallback": "robustness-suite.py",
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "patch-gate.py": {
       "category": "READ",
@@ -348,7 +524,14 @@
       "idempotent": true,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "gate.diff",
+        "repair.escalation"
+      ],
+      "fallback": "diff-risk.py",
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "privacy-scan.py": {
       "category": "OBSERVE",
@@ -357,7 +540,13 @@
       "idempotent": true,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "security.privacy"
+      ],
+      "fallback": null,
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "probe-tools.py": {
       "category": "EXECUTE",
@@ -366,7 +555,13 @@
       "idempotent": true,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "tool.probe"
+      ],
+      "fallback": null,
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "regression-guard.py": {
       "category": "TEST",
@@ -375,7 +570,14 @@
       "idempotent": false,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "repair.regression",
+        "verify.dynamic"
+      ],
+      "fallback": "verify-runner.py",
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "review-prefilter.py": {
       "category": "READ",
@@ -384,7 +586,13 @@
       "idempotent": true,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "review.prefilter"
+      ],
+      "fallback": null,
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "robustness-suite.py": {
       "category": "TEST",
@@ -393,7 +601,14 @@
       "idempotent": true,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "verify.static",
+        "gate.commit"
+      ],
+      "fallback": "verify-runner.py",
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "router-stats.py": {
       "category": "DATABASE",
@@ -402,7 +617,14 @@
       "idempotent": false,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "route.recommend",
+        "observe.token"
+      ],
+      "fallback": null,
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "selfcheck-static.py": {
       "category": "OBSERVE",
@@ -411,7 +633,13 @@
       "idempotent": true,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "verify.static"
+      ],
+      "fallback": null,
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "spec-tasks-import.py": {
       "category": "EDIT",
@@ -420,7 +648,13 @@
       "idempotent": false,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "doc.spec"
+      ],
+      "fallback": null,
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "task-state.py": {
       "category": "DATABASE",
@@ -429,7 +663,15 @@
       "idempotent": false,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "task.state",
+        "repair.escalation",
+        "observe.trace"
+      ],
+      "fallback": null,
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "task-workspace.py": {
       "category": "GIT",
@@ -438,7 +680,13 @@
       "idempotent": false,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "task.workspace"
+      ],
+      "fallback": null,
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "token-meter.py": {
       "category": "OBSERVE",
@@ -447,7 +695,13 @@
       "idempotent": true,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "observe.token"
+      ],
+      "fallback": null,
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "toolstack-pipeline.py": {
       "category": "NETWORK",
@@ -456,7 +710,14 @@
       "idempotent": false,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "tool.register",
+        "tool.probe"
+      ],
+      "fallback": null,
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "verify-runner.py": {
       "category": "EXECUTE",
@@ -465,7 +726,14 @@
       "idempotent": false,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "verify.static",
+        "verify.dynamic"
+      ],
+      "fallback": "robustness-suite.py",
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     },
     "version-check.py": {
       "category": "READ",
@@ -474,7 +742,14 @@
       "idempotent": true,
       "cost_estimate": "none",
       "schema": "sdk-tool.v1",
-      "runtime": "python-stdlib"
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "verify.static",
+        "git.version"
+      ],
+      "fallback": null,
+      "health": "active",
+      "last_checked": "2026-09-01T23:44:37+08:00"
     }
   }
 }

@@ -42,6 +42,49 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
+# --- R-7: 上下文分类观测（ResourceOS §32.3 + SKILL §7 预算表）------------------
+# 五类与 SKILL §7 表格逐行对齐（"活动资源 L3" 即 refs）。未知/缺失落 unclassified，
+# 绝不丢弃 —— 分类漏标本身就是要被看见的信号。
+CATEGORIES = ("system", "task", "refs", "memory", "results")
+
+CONTEXT_BUDGET_SQL = """
+CREATE TABLE IF NOT EXISTS context_budget_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts TEXT NOT NULL,
+  source TEXT,
+  category TEXT NOT NULL,
+  calls INTEGER NOT NULL DEFAULT 0,
+  in_tokens INTEGER NOT NULL DEFAULT 0,
+  out_tokens INTEGER NOT NULL DEFAULT 0,
+  think_tokens INTEGER NOT NULL DEFAULT 0
+)
+"""
+
+
+def log_categories(db_path: Path, source: str, by_category: dict) -> int:
+    """把分类观测落到 router-stats.db 的 context_budget_log。返回写入行数。"""
+    import sqlite3
+    import time as _time
+    try:
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        con = sqlite3.connect(db_path, timeout=10)
+        try:
+            con.execute(CONTEXT_BUDGET_SQL)
+            ts = now_iso()
+            rows = [(ts, str(source), k, v.get("calls", 0), v.get("in", 0),
+                     v.get("out", 0), v.get("think", 0)) for k, v in by_category.items()]
+            con.executemany(
+                "INSERT INTO context_budget_log (ts, source, category, calls,"
+                " in_tokens, out_tokens, think_tokens) VALUES (?,?,?,?,?,?,?)", rows)
+            con.commit()
+            return len(rows)
+        finally:
+            con.close()
+    except (sqlite3.Error, OSError) as e:
+        # 观测落库失败不该让计量命令失败 —— 明确报告，退出码不变
+        return -1
+
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
 
@@ -75,6 +118,13 @@ def main() -> int:
     ap.add_argument("--log", required=True, help="JSONL log or raw text file")
     ap.add_argument("--prices", default=None, help='JSON: {"model_id": price_per_1k_tokens_total}')
     ap.add_argument("--budget", default=None, help='JSON: {"max_usd": 0.5, "max_calls": 50} — per-task budget (T10)')
+    ap.add_argument("--category-budget", default=None,
+                    help='JSON: {"task": 2000, "refs": 8000, ...} — 上下文分类软上限'
+                         '（R-7，只观测不拦截；类名同 SKILL §7：'
+                         'system/task/refs/memory/results）')
+    ap.add_argument("--db", default=None,
+                    help="把分类观测写入该 SQLite 的 context_budget_log 表（R-7，"
+                         "显式指定才写，默认无副作用）")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
@@ -91,6 +141,10 @@ def main() -> int:
 
     per_model: dict[str, dict] = defaultdict(lambda: {"calls": 0, "in": 0, "out": 0, "think": 0,
                                                       "passed": 0, "failed": 0})
+    # R-7：按 R-6 / SKILL §7 的上下文分类做观测。**只观测不强制分配** —— 分配是
+    # agent 的判断，这里只回答"实际装了多少"，超预算只提示不拦截。
+    per_cat: dict[str, dict] = {c: {"calls": 0, "in": 0, "out": 0, "think": 0}
+                                for c in CATEGORIES + ("unclassified",)}
     totals = {"calls": 0, "in": 0, "out": 0, "think": 0, "passed": 0, "failed": 0, "latency": 0}
     cache_hits, cache_total = 0, 0
 
@@ -118,6 +172,12 @@ def main() -> int:
         totals["think"] += think_t
         totals["passed" if success else "failed"] += 1
         totals["latency"] += r.get("latency_ms", 0)
+
+        # R-7 分类观测：记录自带的 category 优先，未知/缺失落入 unclassified
+        # （不丢弃 —— 分类漏标本身就是要被看见的信号）
+        cat = str(r.get("category", "") or "").strip().lower()
+        c = per_cat.get(cat) or per_cat["unclassified"]
+        c["calls"] += 1; c["in"] += in_t; c["out"] += out_t; c["think"] += think_t
 
         # cache-hit proxy: explicit field, else prefix repetition across same-model calls (simple heuristic)
         if "cache_hit" in r:
@@ -158,10 +218,31 @@ def main() -> int:
             "action": "ESCALATED-suggest" if exceeded else "within-budget",
         }
 
+    # R-7：分类预算对照（只观测，不分配、不拦截）
+    cat_budget: dict = json.loads(args.category_budget) if args.category_budget else {}
+    if not isinstance(cat_budget, dict):
+        print(json.dumps({"error": "bad category-budget", "file": args.log}))
+        return 2
+    by_category, over_cats = {}, []
+    for k, v in per_cat.items():
+        if not v["calls"]:
+            continue
+        total_tok = v["in"] + v["out"] + v["think"]
+        row = {**v, "tokens": total_tok}
+        lim = cat_budget.get(k)
+        if isinstance(lim, (int, float)):
+            row["budget"] = lim
+            row["over"] = total_tok > lim
+            if row["over"]:
+                over_cats.append(f"{k} {total_tok} > {lim}")
+        by_category[k] = row
+
     report = {
         "time": now_iso(), "file": args.log, "records": len(records),
         "totals": {**totals, "token_efficiency": round(eff, 1), "think_ratio": round(think_ratio, 3)},
         "cache": {"total": cache_total, "hits": cache_hits, "hit_rate": round(cache_rate, 3) if cache_rate is not None else None},
+        "by_category": by_category,
+        "category_budget": {"limits": cat_budget or None, "over": over_cats or None},
         "per_model": dict(per_model),
         "cost_est": {"total": round(cost_total, 4), "per_model": cost_rows},
         "budget": budget_block,
@@ -169,8 +250,16 @@ def main() -> int:
             "overthinking: think ratio >0.7" if think_ratio > 0.7 else None,
             "cache broken: hit_rate <0.6" if cache_rate is not None and cache_rate < 0.6 else None,
             "budget exceeded: escalate to human (L5, ref-22) — explicit stop > silent degrade" if budget_block and budget_block["exceeded"] else None,
+            ("context budget over: " + "; ".join(over_cats) + " —— 压缩输入类，"
+             "但不得挤占输出推理空间（SKILL §7 reasoning 硬底线）") if over_cats else None,
+            ("unclassified records: %d —— 分类漏标会掩盖真实注入面"
+             % per_cat["unclassified"]["calls"]) if per_cat["unclassified"]["calls"] else None,
         ],
     }
+
+    # R-7 落库：--db 显式指定才写（避免纯计量命令产生副作用）
+    if args.db:
+        report["category_logged"] = log_categories(Path(args.db), args.log, by_category)
 
     if args.json:
         print(json.dumps(report, ensure_ascii=False, indent=2))

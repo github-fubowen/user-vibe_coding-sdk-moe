@@ -1,0 +1,306 @@
+{
+  "schema": "robustness-cases.v1",
+  "domain": "release",
+  "comment": "F-59 Phase 1：声明式用例外置。来源=build_cases 内 C() 常量参数用例（AST 提取保真迁移，v2.10.12）；args 支持 {tmp} 占位符。",
+  "cases": [
+    {
+      "name": "bump-version: invalid version",
+      "script": "bump-version.py",
+      "args": [
+        "vX"
+      ],
+      "expect": 1,
+      "want": [
+        "invalid version"
+      ]
+    },
+    {
+      "name": "bump-version: old==new abort",
+      "script": "bump-version.py",
+      "args": [
+        "--apply",
+        "v9.9.9",
+        "--old",
+        "v9.9.9"
+      ],
+      "expect": 1,
+      "want": [
+        "nothing to bump"
+      ]
+    },
+    {
+      "name": "mutation-audit: --only 未知脚本 → exit 2（不能静默通过）",
+      "script": "mutation-audit.py",
+      "args": [
+        "--only",
+        "no-such.py"
+      ],
+      "expect": 2,
+      "want": [
+        "no mutation defined"
+      ],
+      "timeout": 120
+    },
+    {
+      "name": "mutation-audit: --dry-run 仅校验锚点 → exit 0",
+      "script": "mutation-audit.py",
+      "args": [
+        "--dry-run",
+        "--only",
+        "patch-gate.py"
+      ],
+      "expect": 0,
+      "want": [
+        "anchor OK"
+      ],
+      "timeout": 120
+    },
+    {
+      "name": "privacy-scan: clean dir",
+      "script": "privacy-scan.py",
+      "args": [
+        "{tmp}/clean"
+      ],
+      "expect": 0,
+      "want": [
+        "CLEAN"
+      ]
+    },
+    {
+      "name": "privacy-scan: leak detection",
+      "script": "privacy-scan.py",
+      "args": [
+        "{tmp}/leak"
+      ],
+      "expect": 2,
+      "want": [
+        "blocker"
+      ]
+    },
+    {
+      "name": "privacy-scan: nonexistent dir",
+      "script": "privacy-scan.py",
+      "args": [
+        "{tmp}/nodir"
+      ],
+      "expect": 2,
+      "want": [
+        "not a directory"
+      ]
+    },
+    {
+      "name": "privacy-scan: host runtime 目录默认排除",
+      "script": "privacy-scan.py",
+      "args": [
+        "{tmp}/polluted"
+      ],
+      "expect": 0,
+      "want": [
+        "CLEAN"
+      ]
+    },
+    {
+      "name": "privacy-scan: --include-runtime 仍报",
+      "script": "privacy-scan.py",
+      "args": [
+        "{tmp}/polluted",
+        "--include-runtime"
+      ],
+      "expect": 2,
+      "want": [
+        "drive-letter"
+      ]
+    },
+    {
+      "name": "gh-workflow-check: missing dir",
+      "script": "gh-workflow-check.py",
+      "args": [
+        "--gh-dir",
+        "{tmp}/no-gh"
+      ],
+      "expect": 2,
+      "want": [
+        "not found"
+      ]
+    },
+    {
+      "name": "gh-workflow-check: empty dir blocked",
+      "script": "gh-workflow-check.py",
+      "args": [
+        "--gh-dir",
+        "{tmp}/empty-gh"
+      ],
+      "expect": 2,
+      "want": [
+        "missing workflows/"
+      ]
+    },
+    {
+      "name": "bump-version: --sync-size 独立模式",
+      "script": "bump-version.py",
+      "args": [
+        "--sync-size"
+      ],
+      "expect": 0,
+      "want": [
+        "size sync",
+        "实测"
+      ]
+    },
+    {
+      "name": "version-check: 一致 → 放行",
+      "script": "version-check.py",
+      "args": [
+        "--root",
+        "{tmp}/vc-ok",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"ok\": true"
+      ]
+    },
+    {
+      "name": "version-check: CHANGELOG 顺序倒置 → 拒",
+      "script": "version-check.py",
+      "args": [
+        "--root",
+        "{tmp}/vc-badorder",
+        "--json"
+      ],
+      "expect": 2,
+      "want": [
+        "order violation"
+      ]
+    },
+    {
+      "name": "version-check: 版本串失配 → 拒",
+      "script": "version-check.py",
+      "args": [
+        "--root",
+        "{tmp}/vc-badver",
+        "--json"
+      ],
+      "expect": 2,
+      "want": [
+        "version mismatch"
+      ]
+    },
+    {
+      "name": "version-check: 七点全一致 → 放行（T-511 扩容后）",
+      "script": "version-check.py",
+      "args": [
+        "--root",
+        "{tmp}/vc-ok",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "engineering_head",
+        "alignment_head",
+        "\"ok\": true"
+      ]
+    },
+    {
+      "name": "version-check: ENGINEERING 头部戳错 → 拒（T-511 负向）",
+      "script": "version-check.py",
+      "args": [
+        "--root",
+        "{tmp}/vc-badstamp-eng",
+        "--json"
+      ],
+      "expect": 2,
+      "want": [
+        "engineering_head=v1.2.0",
+        "version mismatch"
+      ]
+    },
+    {
+      "name": "version-check: ALIGNMENT 头部戳错 → 拒（T-511 负向）",
+      "script": "version-check.py",
+      "args": [
+        "--root",
+        "{tmp}/vc-badstamp-align",
+        "--json"
+      ],
+      "expect": 2,
+      "want": [
+        "alignment_head=v1.2.0",
+        "version mismatch"
+      ]
+    },
+    {
+      "name": "version-check: 两份文档缺戳 → 仅 warning 不 fail（T-511 容错）",
+      "script": "version-check.py",
+      "args": [
+        "--root",
+        "{tmp}/vc-nostamp",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "未找到版本戳"
+      ],
+      "dont": [
+        "version mismatch"
+      ]
+    },
+    {
+      "name": "bump-version: 计划含 ENGINEERING/ALIGNMENT 头部戳（T-511 配套）",
+      "script": "bump-version.py",
+      "args": [
+        "v9.9.9",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"kind\": \"engineering-head\"",
+        "\"kind\": \"alignment-head\"",
+        "\"applied\": false"
+      ]
+    },
+    {
+      "name": "bump-version: --json 无 --apply → dry_run 显式表态（F-47 回归）",
+      "script": "bump-version.py",
+      "args": [
+        "v9.9.9",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"applied\": false",
+        "\"dry_run\": true"
+      ]
+    },
+    {
+      "name": "selfcheck-static: 结构自检通过（frontmatter/refs/scripts/toolstack）",
+      "script": "selfcheck-static.py",
+      "args": [],
+      "expect": 0,
+      "want": [
+        "\"schema\": \"selfcheck-static.v1\"",
+        "\"ok\": true"
+      ]
+    },
+    {
+      "name": "selfcheck-static: --quiet 仅退码不打印",
+      "script": "selfcheck-static.py",
+      "args": [
+        "--quiet"
+      ],
+      "expect": 0
+    },
+    {
+      "name": "selfcheck-static: 不完整树 → exit 2 且不 traceback",
+      "script": "selfcheck-static.py",
+      "args": [
+        "--root",
+        "{tmp}/partial-sdk"
+      ],
+      "expect": 2,
+      "want": [
+        "incomplete SDK tree"
+      ]
+    }
+  ]
+}

@@ -1,7 +1,8 @@
 # ALIGNMENT — Coding Agent OS → SDK 落地映射总表
 
 > 吸收对象：`coding-agent-os-architecture.md`（29 节，5 支柱 / 12 组件）
-> 吸收对象本体：`user-vibe_coding-sdk-moe`（v2.10.2）
+> 吸收对象本体：`user-vibe_coding-sdk-moe`（v2.10.12）
+> 本戳受 `version-check.py` 版本戳一致性闸校验（T-511/F-60，七戳含本文件头部）：错戳 exit 2，缺戳仅 warning。
 > 三分类：**协议**（doc，判断纪律）· **脚本**（deterministic，零 LLM）· **排除**（指针引用，不落地）
 > 逐节映射如下；实施细节见各 ref 与 SKILL.md。
 
@@ -178,3 +179,91 @@
 | 3 | 任务级显式完成条件 | ✅ T-08（v2.8.0）`--done-when`/`--done-evidence` |
 | 4 | Action Validator 预执行门 | ✅ T-25（v2.10.0）action-gate |
 | 5 | 故障分类扩展 | ✅ T-09（v2.8.0）taxonomy 5→8 类 |
+
+---
+
+## ResourceOS-Architecture.md 吸收映射（v2.10.7 补记，R-1）
+
+> 吸收对象：`ResourceOS-Architecture.md`（40 节，125KB，2026-09-03 入库 `WorkBuddy/data/SDK_Reference/`（D 盘））。
+> **定位裁决**：架构对齐参考，**不是待实现蓝图**。SDK 资源总量约 50 个（29 脚本 + 23 refs + 少量外部工具），
+> 比其 minimal tier 适用下限（10³）低两个数量级 —— 按其自身 **§34「scale-driven, not preference-driven」**
+> 与 **§39「Over-engineering for scale not yet needed」** 两条元原则，设施层（存储/检索/服务化）整层排除，
+> 吸收走"概念 → 数据字段 → 轻量脚本"三档递减。至此五份架构文档映射齐备（第五份）。
+> 明细指针见 `references/25-resourceos.md`（ref-25）。
+
+| 节 | 内容 | 处置 | SDK 落地点 |
+|---|---|---|---|
+| §1–2 | 执行摘要 / 问题定义 | 吸收（理念） | 静态路由 + 渐进披露已是同一赌注；无新动作 |
+| §3 | 11 条设计原则 | 吸收（9/11 已有） | 新采纳 2 条：原则 2「身份便宜/内容贵」→ 工具 `health` 字段（R-4）；原则 8「声誉靠赢得」→ EMA 成功率（R-8） |
+| §4 | 系统总览架构图 | 排除 | SDK 无 Kernel/Router 分层必要；本表留指针 |
+| §5 | 统一资源模型（16 类 envelope） | 部分吸收 | `toolstack.json` 即简化 envelope；补 capabilities/fallback/health/last_checked → R-3/R-4；16 类分类不引入（脚本+文档两类足够） |
+| §6 | CapabilityOS（能力词表/图/别名） | **吸收（最小化）** | 按 mode+group 路由，缺能力层。引入扁平词表 + `capability_vocab` 顶层注册（不建图、不建 closure table）→ R-3 |
+| §7 | Registry（元数据/内容分离） | 部分吸收 | `toolstack-pipeline` 已是注册流水线；缺 last_checked/health/内容 hash → R-3/R-4；hash 校验并入现有巡检，不建后台任务 |
+| §8 | L0–L4 多级加载 | **已吸收** | G2 渐进披露 = 同构（SKILL 主文件 ≈ L1 索引，refs ≈ L3，脚本执行 ≈ L4）；§9 引用表即"何时加载"清单 |
+| §9 | 13 步混合检索 | 部分吸收（仅协议层） | ref-21 六步检索协议已覆盖语义层；不建 BM25/向量/RRF（50 资源无需）；采纳其**置信阈值语义**（自动选 / 呈现 top-K / 回退）进 §6 表述 → R-6 |
+| §10 | Router 七动词 | 部分吸收 | action-gate ≈ activate/execute 前置检查；probe-tools ≈ 可用性面；补 **resolve**（依赖可用性预检，纯规划无副作用）→ R-5；不建独立 API |
+| §11 | 层级工具发现（family→category→operation） | **已吸收** | §6 静态路由表 + toolstack `group` 字段即两级发现；29 脚本规模下"静态注入优于动态发现"（§35 权衡表支持现状） |
+| §12 | Skill 架构（manifest / SKILL.md 分离） | **吸收（校准）** | 机器可读/LLM 可读分离已成立；**尺寸预算**（目标 500–2K token vs 实测 ≈12K）→ R-2，为评审 F-61 提供外部背书 |
+| §13 | ProjectOS（工作区/隔离/动态激活） | **已吸收** | `task-workspace.py` per-task worktree 隔离即同构最小形态 |
+| §14 | ContextOS（预算分配/装配/压缩） | **吸收（协议层）** | G1-G6 是闸门不是分配器；引入**分类预算表 + reasoning 硬底线**协议 → R-6；不做自动再分配（§14.4 降级为人工纪律） |
+| §15 | MemoryOS 八层记忆 | 已吸收（宿主分担） | SDK 4 层 JSON + 宿主三层记忆；episodic→semantic 离线提升排除（宿主记忆已管） |
+| §16 | Reference/Knowledge 架构 | **已吸收** | refs 渐进披露 + 指针式外链（ref-10/12/13/14 不 vendored）即其 ingestion 最小形态 |
+| §17 | 依赖图（5 类边/拓扑解析/回退替换） | **吸收（最小化）** | 脚本间顺序依赖（version-check→…、ci-smoke 步骤序）现为硬编码 —— 与评审 E-4 同根。manifest 化 → R-5；不建 closure table |
+| §18 | 声誉系统（贝叶斯平滑/反流行/新鲜度） | 部分吸收 | router-stats bandit（Thompson）已具探索项；golden cell 即 context-bucketing；**缺 EMA 成功率与 freshness decay** → R-8；负信号存储暂缓（样本量不足） |
+| §19 | 生命周期状态机（7 态/健康检查） | 部分吸收 | task-state 15 态是任务级；**工具级无健康态**。引入 active/degraded/unavailable 三态（非全 7 态）→ R-4 |
+| §20 | SecurityOS（模型外执行/信任分级/凭据卫生） | **已吸收** | action-gate risk tier 0-4 + tier-4 结构性人审 + privacy-scan + secrets 不进上下文，逐条对账通过；沙箱容器排除（宿主沙箱已管） |
+| §21 | 冲突解决（重复检测/优先级阶梯） | 部分吸收 | 优先级阶梯（高层只能收紧不能放权）与闸门语义一致；**缺重复登记检测**（Stage 3b 仅增不删）→ R-9 |
+| §22 | 组合（Composer / 工作流资源化） | 部分吸收 | ci-smoke 步骤序即最常见组合的固化形态 → R-5 将其数据化（≈ Workflow 资源化的最小等价物）；完整 Composer 排除 |
+| §23 | 失败恢复（重试预算/熔断/单调递减） | **已吸收** | ref-22 L0-L5 + max_repair_attempts=3 + 振荡检测 + flaky-check 前置判别全部对齐；optional+fallback 结构化声明并入 R-3 |
+| §24 | 可观测（trace 全链重建 / wasted-token） | 部分吸收 | events.jsonl + trace-export + env-snapshot 已有；**缺跨脚本统一 trace_id** → R-10；wasted-token 指标暂缓（需先有 R-7 分类观测） |
+| §25 | 自改进（在线有界 / 离线门禁分离） | **已吸收** | bandit 仅为建议 + 结构变更走 golden 回归，正是 §25.1 的 online/offline 分离；无需新动作 |
+| §26–27 | 存储架构 / minimal tier（SQLite+FTS5+FAISS） | **排除** | §34 scale-driven：50 资源 ≪ 10³ 阈值；SQLite 单文件（router-stats.db）已是等价物 |
+| §28 | HTTP API 层 | 排除 | CLI 即接口（§28 API 与现有脚本 CLI 一一对应，无需服务化） |
+| §29 | 数据库 Schema（17 表） | 参考 | R-3 扩字段时参照其唯一约束（UNIQUE(name,version)）与索引设计 |
+| §30 | 目录结构 | **已吸收** | kernel/registry/router 分层不适用，但 scripts/references/presets/data 布局与其精神一致 |
+| §31 | 端到端执行示例（全链 10–20K token） | 参考 | 全链 token 基准并入 R-6 预算表作参考锚点 |
+| §32 | Token 优化（7 类成本/8 技术/阶段预算表） | 部分吸收 | G-gates 已覆盖渐进披露/缓存/分层；**§32.3 阶段预算表**并入 R-6；token-meter 增分类观测 → R-7 |
+| §33 | 规模目标（10²–10⁶ 延迟表） | 排除 | 规模不匹配，整体不适用 |
+| §34 | 技术选型（scale-driven 元原则） | **吸收** | 作为本表处置依据写入表头 |
+| §35 | 11 条架构权衡表 | **吸收** | 「静态注入 vs 动态发现」「SQLite vs PostgreSQL」「文件系统 vs 对象存储」三条直接支持排除决策，见本附录 |
+| §36–37 | NFR / 17 条验收标准 | 部分吸收 | 可测项转化：尺寸预算（R-2）、审计可重建（R-10）；延迟/规模/多租户类排除 |
+| §38 | 六阶段路线图 | 参考 | 重排为 P0/P1/P2 批次，不按周执行 |
+| §39 | 8 条风险（含过度工程） | **吸收** | 「过度工程」列为本线元原则；其余 7 条逐条对账进计划风险矩阵 |
+| §40 | 最终架构图 | 参考 | 本表 + ref-25 留指针 |
+
+**处置统计**：已吸收 12 节 · 部分吸收 16 节 · 新吸收 5 节 · 排除 7 节 · 参考 4 节（按主处置计）。
+
+### 差距与票号（G- 系列 → R- 票）
+
+| 差距 | 内容 | 合并 | 票 |
+|---|---|---|---|
+| G-1 | 热路径尺寸无预算闸（38.4KB ≈ 12K token，超 §12.1 目标 5–6 倍） | **F-61** | R-2 → 并入 `sdd-sdk-improve-v2.11` Epic E（v2.12.0），本线不重复立项 |
+| G-2 | 无能力层（capability） | E-5 部分 | R-3（P1） |
+| G-3 | 工具无健康态与生命周期 | — | R-3 + R-4（P1） |
+| G-4 | 步骤序/依赖硬编码（ci-smoke 七步写死） | **E-4** | R-5（P1） |
+| G-5 | 上下文预算只有闸门没有预算表 | — | R-6（P1）+ R-7 度量面（P2） |
+| G-6 | 声誉数据缺时间维度 | — | R-8（P2） |
+| G-7 | 注册无查重 | F-63 相关 | R-9（P2） |
+| G-8 | 追溯链缺统一 trace_id | — | R-10（P2） |
+
+### 附录：§35 三条权衡表对排除决策的支持
+
+| §35 权衡 | ResourceOS 倾向 | SDK 裁决 |
+|---|---|---|
+| 静态注入 vs 动态发现 | 大规模→动态发现 | 29 脚本 → **静态注入**（§6 表 + toolstack group）胜出，与其"小规模静态更优"一致 |
+| SQLite vs PostgreSQL | 规模驱动 | 50 资源 + 单文件 → **SQLite**（router-stats.db）足够，不引入服务化 DB |
+| 文件系统 vs 对象存储 | 规模驱动 | refs / scripts / data 全部 **文件系统**，与 §30 目录精神一致 |
+
+### 批次与版本（2026-09-03 执行时修正）
+
+| 批次 | 票 | 版本 | 状态 |
+|---|---|---|---|
+| **P0** | R-1 映射表 + ref-25 指针 | **v2.10.7** | ✅ 已落地 |
+| **P1** | R-3 schema 4 · R-4 健康态 · R-5 manifest 化 + resolve · R-6 预算表 | **v2.10.8** | ✅ 已落地 |
+| P2 | R-7 分类观测 · R-8 EMA/freshness · R-9 查重 · R-10 trace_id | **v2.10.9** | ✅ 已落地 |
+
+> **版本号裁决**：原计划本线占用 v2.14.0+，但 v2.11.0–v2.13.1 已被 `sdd-sdk-improve-v2.11` 清偿包预订。
+> `version-check`（T-16）强制 CHANGELOG 条目**严格递减**，若本轮直接跳至 v2.14.0，清偿包后续 v2.11.0 条目插到顶部即判失序 → exit 2。
+> 故 **P0（纯文档）+ P1（数据字段 / 脚本能力，无行为破坏）两轮均按 §10 规则 8 豁免边界只做 patch 递增**
+> （v2.10.6 → v2.10.7 → v2.10.8），不占用中间号段；**v2.14.0 留给 P2**，待清偿包 v2.13.1 收官后启用。
+> R-2（= F-61）已并入清偿包 Epic E，本线只贡献规范引用（§12.1 尺寸预算依据）与验收口径，不动工。

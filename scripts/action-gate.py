@@ -32,21 +32,19 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
+from _common import (EXIT_OK, EXIT_ERROR, EXIT_GATE, emit_json,
+                   now_iso, schema, build_parser, add_json_flag)
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 TOOLSTACK = SCRIPT_DIR / "toolstack.json"
-SCHEMA = "action-gate.v1"
+SCHEMA = schema("action-gate")
 
 # cicd §15（P3 清偿 v2.10.6）：策略版本钉 —— 风险分级决策表是策略面。变更分级/
 # 决策规则 = 变策略 = 显式 bump 本常量 + CHANGELOG 记录。调用方可传
 # --policy-version 校验钉住的版本（不匹配 → fail-closed exit 2）。
 POLICY_VERSION = "gate-policy.v1"
 
-
-def now_iso() -> str:
-    return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
 
 
 def load_tools() -> tuple[dict, dict]:
@@ -83,6 +81,76 @@ def find_tool(name: str, tools: dict) -> tuple[str | None, dict | None]:
         if "(" in key and key.rstrip(")").rsplit("(", 1)[-1].strip() == name:
             return key, meta
     return None, None
+
+
+CI_STEPS = SCRIPT_DIR / "data" / "ci-steps.json"
+
+
+def ci_prereqs(script_key: str) -> dict | None:
+    """若该脚本是 ci-smoke 的某一步，回报其位置与 cheapest-first 前置步骤。"""
+    if not CI_STEPS.exists():
+        return None
+    try:
+        data = json.loads(CI_STEPS.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return None
+    steps = data.get("steps") or []
+    for i, st in enumerate(steps):
+        if st.get("script") == script_key:
+            return {"is_step": True, "position": i, "tier": st.get("tier"),
+                    "optional": bool(st.get("optional")),
+                    "prerequisite_steps": [s.get("name") for s in steps[:i]]}
+    return {"is_step": False}
+
+
+def resolve(name: str, tools: dict) -> dict:
+    """R-5 / ResourceOS §10 `resolve` 动词：纯规划、零副作用的依赖可用性预检。
+
+    三态：READY（自身可用）/ DEGRADED（自身 degraded|unavailable 但 fallback 可用）
+    / BLOCKED（自身不可用且无可用 fallback，或未登记）。
+    """
+    key, meta = find_tool(name, tools)
+    rep: dict = {"schema": SCHEMA, "mode": "resolve", "tool": name, "time": now_iso(),
+                 "policy_version": POLICY_VERSION, "toolstack_key": key}
+    if key is None:
+        rep.update({"decision": "BLOCKED", "health": None, "fallback": None,
+                    "reasons": ["工具未登记在 toolstack.json —— 不可执行（先跑 "
+                                "selfcheck-static 或 toolstack-pipeline 登记）"]})
+        return rep
+
+    health = meta.get("health") or "active"
+    fb = meta.get("fallback")
+    fb_key, fb_meta = (find_tool(fb, tools) if fb else (None, None))
+    fb_health = (fb_meta or {}).get("health") or "active" if fb_key else None
+    prereq = ci_prereqs(key)
+
+    if health == "active":
+        decision = "READY"
+    elif fb_key and fb_health == "active":
+        decision = "DEGRADED"
+    else:
+        decision = "BLOCKED"
+
+    reasons: list[str] = []
+    if decision == "READY":
+        reasons.append(f"health={health}（last_checked={meta.get('last_checked') or 'never'}）")
+    elif decision == "DEGRADED":
+        reasons.append(f"health={health} —— 自身不可用，改走 fallback {fb_key}（health={fb_health}）")
+    else:
+        reasons.append(f"health={health} 且无可用 fallback"
+                       + (f"（登记 fallback={fb}，但其 health={fb_health}）" if fb_key else "（未登记 fallback）"))
+    if prereq and prereq.get("is_step"):
+        reasons.append("ci-smoke 第 "
+                       f"{prereq['position']} 步（tier={prereq.get('tier')}），前置："
+                       + (", ".join(prereq["prerequisite_steps"]) or "无"))
+
+    rep.update({"decision": decision, "health": health,
+                "last_checked": meta.get("last_checked"),
+                "capabilities": meta.get("capabilities") or [],
+                "fallback": ({"tool": fb_key, "health": fb_health} if fb else None),
+                "risk_tier": meta.get("risk_tier"),
+                "ci_step": prereq, "reasons": reasons})
+    return rep
 
 
 def gate(name: str, args_json: str | None, user_approved: bool) -> dict:
@@ -149,26 +217,45 @@ def gate(name: str, args_json: str | None, user_approved: bool) -> dict:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Action Validator pre-execution gate (T-25)")
+    ap = build_parser("Action Validator pre-execution gate (T-25)")
     ap.add_argument("--tool", required=True, help="tool name (toolstack.json key, base name, or alias)")
     ap.add_argument("--args-json", default=None, help="tool arguments as a JSON object (validated)")
     ap.add_argument("--user-approved", action="store_true",
                     help="tier-4 only: record explicit human approval (ask the user FIRST)")
     ap.add_argument("--policy-version", default=None,
                     help="caller-pinned gate policy version (cicd §15); mismatch → exit 2")
-    ap.add_argument("--json", action="store_true", help="machine-readable JSON to stdout")
+    ap.add_argument("--resolve", action="store_true",
+                    help="resolve 模式（R-5）：依赖可用性预检，纯规划零副作用，输出 READY/DEGRADED/BLOCKED")
+    ap.add_argument("--toolstack", default=None,
+                    help="指定 toolstack.json（测试与夹具；默认 scripts/toolstack.json）")
+    add_json_flag(ap, help="machine-readable JSON to stdout")
     args = ap.parse_args()
+
+    if args.toolstack:
+        global TOOLSTACK
+        TOOLSTACK = Path(args.toolstack).resolve()
 
     if args.policy_version and args.policy_version != POLICY_VERSION:  # §15 策略版本钉
         print(f"[fatal] policy version mismatch: caller pinned {args.policy_version!r}, "
               f"gate enforces {POLICY_VERSION!r} — risk-tier decision table is policy, "
               f"bump the POLICY_VERSION constant (with CHANGELOG) if intended",
               file=sys.stderr)
-        return 2
+        return EXIT_GATE
+
+    if args.resolve:
+        rep = resolve(args.tool, load_tools()[1])
+        if args.json:
+            emit_json(rep)
+        else:
+            print(f"== action-gate resolve: {rep['decision']}  {args.tool} "
+                  f"(toolstack_key={rep.get('toolstack_key')}) ==")
+            for r in rep.get("reasons", []):
+                print(f"  - {r}")
+        return EXIT_OK if rep["decision"] != "BLOCKED" else EXIT_GATE
 
     rep = gate(args.tool, args.args_json, args.user_approved)
     if args.json:
-        print(json.dumps(rep, ensure_ascii=False, indent=2))
+        emit_json(rep)
     else:
         print(f"== action-gate: {rep['decision']}  {args.tool} "
               f"(tier={rep.get('risk_tier')}, policy={rep.get('policy_version')}) ==")
@@ -176,7 +263,7 @@ def main() -> int:
             print(f"  - {r}")
         for c in rep.get("conditions", []):
             print(f"  [condition] {c}")
-    return 0 if rep["decision"] == "ALLOW" else 2
+    return EXIT_OK if rep["decision"] == "ALLOW" else EXIT_GATE
 
 
 if __name__ == "__main__":

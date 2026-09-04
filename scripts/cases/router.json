@@ -1,0 +1,491 @@
+{
+  "schema": "robustness-cases.v1",
+  "domain": "router",
+  "comment": "F-59 Phase 1：声明式用例外置。来源=build_cases 内 C() 常量参数用例（AST 提取保真迁移，v2.10.12）；args 支持 {tmp} 占位符。",
+  "cases": [
+    {
+      "name": "router-stats: --help",
+      "script": "router-stats.py",
+      "args": [
+        "--help"
+      ],
+      "expect": 0,
+      "want": [
+        "usage"
+      ]
+    },
+    {
+      "name": "router-stats: init",
+      "script": "router-stats.py",
+      "args": [
+        "init",
+        "--db",
+        "{tmp}/rs.db"
+      ],
+      "expect": 0,
+      "want": [
+        "created"
+      ]
+    },
+    {
+      "name": "router-stats: invalid outcome",
+      "script": "router-stats.py",
+      "args": [
+        "record",
+        "--db",
+        "{tmp}/rs.db",
+        "--cell",
+        "bug_fix",
+        "--model",
+        "m1",
+        "--outcome",
+        "nope"
+      ],
+      "expect": 2,
+      "want": [
+        "invalid outcome"
+      ]
+    },
+    {
+      "name": "router-stats: record pass",
+      "script": "router-stats.py",
+      "args": [
+        "record",
+        "--db",
+        "{tmp}/rs.db",
+        "--cell",
+        "bug_fix",
+        "--model",
+        "deepseek-v4",
+        "--outcome",
+        "pass",
+        "--tokens",
+        "100",
+        "--cost",
+        "0.001"
+      ],
+      "expect": 0,
+      "want": [
+        "recorded"
+      ]
+    },
+    {
+      "name": "router-stats: recommend with data",
+      "script": "router-stats.py",
+      "args": [
+        "recommend",
+        "--db",
+        "{tmp}/rs.db",
+        "--cell",
+        "bug_fix"
+      ],
+      "expect": 0,
+      "want": [
+        "deepseek-v4"
+      ]
+    },
+    {
+      "name": "router-stats: recommend empty db",
+      "script": "router-stats.py",
+      "args": [
+        "recommend",
+        "--db",
+        "{tmp}/empty2.db",
+        "--cell",
+        "bug_fix"
+      ],
+      "expect": 0,
+      "want": [
+        "\"no_data\": true"
+      ]
+    },
+    {
+      "name": "router-stats: report empty db",
+      "script": "router-stats.py",
+      "args": [
+        "report",
+        "--db",
+        "{tmp}/empty2.db",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"records\": 0"
+      ]
+    },
+    {
+      "name": "router-stats: corrupt db",
+      "script": "router-stats.py",
+      "args": [
+        "record",
+        "--db",
+        "{tmp}/corrupt.db",
+        "--cell",
+        "x",
+        "--model",
+        "m1",
+        "--outcome",
+        "pass"
+      ],
+      "expect": 2,
+      "want": [
+        "database error"
+      ]
+    },
+    {
+      "name": "token-meter: 超预算 → 拦截 exit 2（F-50）",
+      "script": "token-meter.py",
+      "args": [
+        "--log",
+        "{tmp}/many.jsonl",
+        "--budget",
+        "{\"max_calls\":10}",
+        "--json"
+      ],
+      "expect": 2,
+      "want": [
+        "exceeded",
+        "ESCALATED"
+      ]
+    },
+    {
+      "name": "token-meter: budget ok",
+      "script": "token-meter.py",
+      "args": [
+        "--log",
+        "{tmp}/many.jsonl",
+        "--budget",
+        "{\"max_calls\":100}",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"exceeded\": false"
+      ],
+      "dont": [
+        "\"exceeded\": true"
+      ]
+    },
+    {
+      "name": "token-meter: 不传 --budget 仅计量 → exit 0（不受影响）",
+      "script": "token-meter.py",
+      "args": [
+        "--log",
+        "{tmp}/many.jsonl",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "records"
+      ]
+    },
+    {
+      "name": "router-stats: report with data",
+      "script": "router-stats.py",
+      "args": [
+        "report",
+        "--db",
+        "{tmp}/rs.db",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"pass\": 1"
+      ]
+    },
+    {
+      "name": "error-sig: match missing store",
+      "script": "error-sig.py",
+      "args": [
+        "match",
+        "--text",
+        "x",
+        "--store",
+        "{tmp}/nosigs.json"
+      ],
+      "expect": 2,
+      "want": [
+        "store not found"
+      ]
+    },
+    {
+      "name": "env-snapshot: missing log (json)",
+      "script": "env-snapshot.py",
+      "args": [
+        "--log",
+        "{tmp}/nope.log",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "not found"
+      ]
+    },
+    {
+      "name": "token-meter: empty file",
+      "script": "token-meter.py",
+      "args": [
+        "--log",
+        "{tmp}/empty.log"
+      ],
+      "expect": 0,
+      "want": [
+        "no records"
+      ]
+    },
+    {
+      "name": "token-meter: garbage lines",
+      "script": "token-meter.py",
+      "args": [
+        "--log",
+        "{tmp}/garbage.jsonl"
+      ],
+      "expect": 0,
+      "want": [
+        "records"
+      ]
+    },
+    {
+      "name": "token-meter: 分类观测 by_category 按类汇总（R-7）",
+      "script": "token-meter.py",
+      "args": [
+        "--log",
+        "{tmp}/cat.jsonl",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"task\"",
+        "\"refs\"",
+        "\"memory\"",
+        "\"results\"",
+        "\"unclassified\""
+      ]
+    },
+    {
+      "name": "token-meter: 分类超预算 → 提示但不拦截（R-7 只观测）",
+      "script": "token-meter.py",
+      "args": [
+        "--log",
+        "{tmp}/cat.jsonl",
+        "--json",
+        "--category-budget",
+        "{\"task\":2000,\"refs\":8000,\"memory\":2000,\"results\":6000}"
+      ],
+      "expect": 0,
+      "want": [
+        "\"over\": true",
+        "context budget over: refs 9400 > 8000"
+      ]
+    },
+    {
+      "name": "token-meter: 漏标/未知分类落 unclassified 且不丢弃（R-7）",
+      "script": "token-meter.py",
+      "args": [
+        "--log",
+        "{tmp}/cat.jsonl",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"unclassified\"",
+        "\"calls\": 2",
+        "unclassified records: 2"
+      ]
+    },
+    {
+      "name": "token-meter: --db 落 context_budget_log（R-7）",
+      "script": "token-meter.py",
+      "args": [
+        "--log",
+        "{tmp}/cat.jsonl",
+        "--json",
+        "--db",
+        "{tmp}/ctx.db"
+      ],
+      "expect": 0,
+      "want": [
+        "\"category_logged\": 5"
+      ]
+    },
+    {
+      "name": "token-meter: --category-budget 非对象 → exit 2（R-7 负向）",
+      "script": "token-meter.py",
+      "args": [
+        "--log",
+        "{tmp}/cat.jsonl",
+        "--json",
+        "--category-budget",
+        "[1,2]"
+      ],
+      "expect": 2,
+      "want": [
+        "bad category-budget"
+      ]
+    },
+    {
+      "name": "router-stats v2: record pass (seed)",
+      "script": "router-stats.py",
+      "args": [
+        "record",
+        "--db",
+        "{tmp}/rs2.db",
+        "--cell",
+        "qa",
+        "--model",
+        "m1",
+        "--outcome",
+        "pass",
+        "--tokens",
+        "500",
+        "--cost",
+        "0.001"
+      ],
+      "expect": 0,
+      "want": [
+        "recorded"
+      ]
+    },
+    {
+      "name": "router-stats v2: record infra_fail",
+      "script": "router-stats.py",
+      "args": [
+        "record",
+        "--db",
+        "{tmp}/rs2.db",
+        "--cell",
+        "qa",
+        "--model",
+        "m1",
+        "--outcome",
+        "infra_fail",
+        "--error-class",
+        "empty",
+        "--response-tokens",
+        "7",
+        "--tokens",
+        "7"
+      ],
+      "expect": 0,
+      "want": [
+        "infra_fail"
+      ]
+    },
+    {
+      "name": "router-stats v2: invalid error_class",
+      "script": "router-stats.py",
+      "args": [
+        "record",
+        "--db",
+        "{tmp}/rs2.db",
+        "--cell",
+        "qa",
+        "--model",
+        "m1",
+        "--outcome",
+        "infra_fail",
+        "--error-class",
+        "bogus"
+      ],
+      "expect": 2,
+      "want": [
+        "invalid error_class"
+      ]
+    },
+    {
+      "name": "router-stats v2: report 分离 infra（后验不被污染）",
+      "script": "router-stats.py",
+      "args": [
+        "report",
+        "--db",
+        "{tmp}/rs2.db",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"infra_fail\": 1",
+        "\"capability_trials\": 1"
+      ]
+    },
+    {
+      "name": "router-stats v2: snapshot 冻结先验",
+      "script": "router-stats.py",
+      "args": [
+        "snapshot",
+        "--db",
+        "{tmp}/rs2.db"
+      ],
+      "expect": 0,
+      "want": [
+        "frozen_cells"
+      ]
+    },
+    {
+      "name": "router-stats v2: seed 低 token fail",
+      "script": "router-stats.py",
+      "args": [
+        "record",
+        "--db",
+        "{tmp}/rs3.db",
+        "--cell",
+        "qa",
+        "--model",
+        "m1",
+        "--outcome",
+        "fail",
+        "--tokens",
+        "10"
+      ],
+      "expect": 0,
+      "want": [
+        "recorded"
+      ]
+    },
+    {
+      "name": "router-stats v2: rebuild retag",
+      "script": "router-stats.py",
+      "args": [
+        "rebuild",
+        "--db",
+        "{tmp}/rs3.db",
+        "--retag-threshold",
+        "50",
+        "--no-backup"
+      ],
+      "expect": 0,
+      "want": [
+        "retagged_rows"
+      ]
+    },
+    {
+      "name": "router-stats v2: legacy NULL 行回填",
+      "script": "router-stats.py",
+      "args": [
+        "report",
+        "--db",
+        "{tmp}/legacy.db",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"unclassified_fail_rows\": 0"
+      ]
+    },
+    {
+      "name": "router-stats v2: 回填后 retag 按 COALESCE 生效",
+      "script": "router-stats.py",
+      "args": [
+        "rebuild",
+        "--db",
+        "{tmp}/legacy.db",
+        "--retag-threshold",
+        "50",
+        "--no-backup"
+      ],
+      "expect": 0,
+      "want": [
+        "\"retagged_rows\": 1"
+      ]
+    }
+  ]
+}

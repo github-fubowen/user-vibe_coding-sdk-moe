@@ -1,0 +1,357 @@
+{
+  "schema": "robustness-cases.v1",
+  "domain": "pipeline",
+  "comment": "F-59 Phase 1：声明式用例外置。来源=build_cases 内 C() 常量参数用例（AST 提取保真迁移，v2.10.12）；args 支持 {tmp} 占位符。",
+  "cases": [
+    {
+      "name": "task-state: --help",
+      "script": "task-state.py",
+      "args": [
+        "--help"
+      ],
+      "expect": 0,
+      "want": [
+        "usage"
+      ]
+    },
+    {
+      "name": "toolstack-pipeline: 数据 SHA256 漂移 → exit 2（负向覆盖）",
+      "script": "toolstack-pipeline.py",
+      "args": [
+        "--manifest",
+        "{tmp}/toolstack-drift.json"
+      ],
+      "expect": 2,
+      "want": [
+        "MISMATCH"
+      ],
+      "timeout": 60
+    },
+    {
+      "name": "git-pre-commit: docs-only skip",
+      "script": "git-pre-commit.py",
+      "args": [
+        "--dry-run",
+        "--changed",
+        "README.md"
+      ],
+      "expect": 0,
+      "want": [
+        "skip"
+      ]
+    },
+    {
+      "name": "git-pre-commit: changed script gate",
+      "script": "git-pre-commit.py",
+      "args": [
+        "--dry-run",
+        "--changed",
+        "user-vibe_coding-sdk-moe/scripts/token-meter.py"
+      ],
+      "expect": 0,
+      "want": [
+        "PASS"
+      ],
+      "timeout": 180
+    },
+    {
+      "name": "git-pre-commit: docs 触发 privacy 闸（F-41）",
+      "script": "git-pre-commit.py",
+      "args": [
+        "--dry-run",
+        "--changed",
+        "user-vibe_coding-sdk-moe/ALIGNMENT.md"
+      ],
+      "expect": 0,
+      "want": [
+        "privacy-scan",
+        "PASS"
+      ]
+    },
+    {
+      "name": "git-pre-commit: data json valid",
+      "script": "git-pre-commit.py",
+      "args": [
+        "--dry-run",
+        "--changed",
+        "{tmp}/baseline-tmp.json"
+      ],
+      "expect": 0,
+      "want": [
+        "PASS"
+      ]
+    },
+    {
+      "name": "git-pre-commit: data bad json blocked",
+      "script": "git-pre-commit.py",
+      "args": [
+        "--dry-run",
+        "--changed",
+        "{tmp}/golden-set-bad.json"
+      ],
+      "expect": 1,
+      "want": [
+        "invalid JSON",
+        "BLOCKED"
+      ]
+    },
+    {
+      "name": "git-pre-commit: golden-set validate",
+      "script": "git-pre-commit.py",
+      "args": [
+        "--dry-run",
+        "--changed",
+        "{tmp}/golden-set-ok.json"
+      ],
+      "expect": 0,
+      "want": [
+        "PASS"
+      ]
+    },
+    {
+      "name": "ci-fail-analyze: unit failure",
+      "script": "ci-fail-analyze.py",
+      "args": [
+        "--log",
+        "{tmp}/unit.log",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "unit_failure",
+        "diagnostic.v1"
+      ]
+    },
+    {
+      "name": "ci-fail-analyze: timeout",
+      "script": "ci-fail-analyze.py",
+      "args": [
+        "--log",
+        "{tmp}/timeout.log"
+      ],
+      "expect": 0,
+      "want": [
+        "timeout"
+      ]
+    },
+    {
+      "name": "ci-fail-analyze: missing log",
+      "script": "ci-fail-analyze.py",
+      "args": [
+        "--log",
+        "{tmp}/nope.log"
+      ],
+      "expect": 2,
+      "want": [
+        "not found"
+      ]
+    },
+    {
+      "name": "ci-fail-analyze: install error beats failed",
+      "script": "ci-fail-analyze.py",
+      "args": [
+        "--log",
+        "{tmp}/install.log",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "install_error"
+      ],
+      "dont": [
+        "unit_failure"
+      ]
+    },
+    {
+      "name": "spec-tasks-import: parse and write",
+      "script": "spec-tasks-import.py",
+      "args": [
+        "--tasks",
+        "{tmp}/tasks.md",
+        "--tasks-dir",
+        "{tmp}/spec-tasks"
+      ],
+      "expect": 0,
+      "want": [
+        "T-001",
+        "T-002"
+      ]
+    },
+    {
+      "name": "spec-tasks-import: missing tasks.md",
+      "script": "spec-tasks-import.py",
+      "args": [
+        "--tasks",
+        "{tmp}/nope.md",
+        "--tasks-dir",
+        "{tmp}/spec-tasks"
+      ],
+      "expect": 2,
+      "want": [
+        "not found"
+      ]
+    },
+    {
+      "name": "spec-tasks-import: empty tasks list",
+      "script": "spec-tasks-import.py",
+      "args": [
+        "--tasks",
+        "{tmp}/tasks-empty.md",
+        "--tasks-dir",
+        "{tmp}/spec-tasks"
+      ],
+      "expect": 2,
+      "want": [
+        "no '- [ ]'"
+      ]
+    },
+    {
+      "name": "ci-fail-analyze: permission",
+      "script": "ci-fail-analyze.py",
+      "args": [
+        "--log",
+        "{tmp}/perm.log"
+      ],
+      "expect": 0,
+      "want": [
+        "permission"
+      ]
+    },
+    {
+      "name": "ci-fail-analyze: dependency",
+      "script": "ci-fail-analyze.py",
+      "args": [
+        "--log",
+        "{tmp}/dep.log"
+      ],
+      "expect": 0,
+      "want": [
+        "dependency"
+      ]
+    },
+    {
+      "name": "ci-fail-analyze: assertion (jest)",
+      "script": "ci-fail-analyze.py",
+      "args": [
+        "--log",
+        "{tmp}/assertj.log"
+      ],
+      "expect": 0,
+      "want": [
+        "assertion"
+      ]
+    },
+    {
+      "name": "ci-fail-analyze: origin infra 信号覆盖（dependency+网络指纹 → RETRY）",
+      "script": "ci-fail-analyze.py",
+      "args": [
+        "--log",
+        "{tmp}/dep-infra.log",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"origin\": \"infra\"",
+        "\"recommended_action\": \"RETRY\""
+      ]
+    },
+    {
+      "name": "ci-fail-analyze: origin test（fixture 未找到 → REPAIR_TEST）",
+      "script": "ci-fail-analyze.py",
+      "args": [
+        "--log",
+        "{tmp}/test-fixture.log",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"origin\": \"test\"",
+        "\"REPAIR_TEST\""
+      ]
+    },
+    {
+      "name": "ci-fail-analyze: origin environment（permission → FIX_ENV）",
+      "script": "ci-fail-analyze.py",
+      "args": [
+        "--log",
+        "{tmp}/perm.log",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"origin\": \"environment\"",
+        "\"FIX_ENV\""
+      ]
+    },
+    {
+      "name": "ci-fail-analyze: origin unknown → DIAGNOSE（不直接进修复环）",
+      "script": "ci-fail-analyze.py",
+      "args": [
+        "--log",
+        "{tmp}/unclass.log",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"origin\": \"unknown\"",
+        "\"DIAGNOSE\""
+      ]
+    },
+    {
+      "name": "ci-fail-analyze: per-test 字段注入（vk B.6）",
+      "script": "ci-fail-analyze.py",
+      "args": [
+        "--log",
+        "{tmp}/p6-cifail.log",
+        "--results-json",
+        "{tmp}/p6-cifail-results.json",
+        "--json"
+      ],
+      "expect": 0,
+      "want": [
+        "\"per_test\"",
+        "\"test_name\": \"case-alpha\"",
+        "\"failing_tests\""
+      ]
+    },
+    {
+      "name": "ci-fail-analyze: results JSON 畸形 → exit2 非 traceback",
+      "script": "ci-fail-analyze.py",
+      "args": [
+        "--log",
+        "{tmp}/p6-cifail.log",
+        "--results-json",
+        "{tmp}/p6-cifail-results-bad.json"
+      ],
+      "expect": 2,
+      "want": [
+        "[fatal]",
+        "results-json"
+      ]
+    },
+    {
+      "name": "ci-smoke: --steps 空清单 → exit 2（R-5 fail-closed）",
+      "script": "ci-smoke.py",
+      "args": [
+        "--steps",
+        "{tmp}/ci-steps-empty.json"
+      ],
+      "expect": 2,
+      "want": [
+        "步骤清单不可用"
+      ]
+    },
+    {
+      "name": "ci-smoke: --steps 指向不存在脚本 → exit 2（R-5 断链）",
+      "script": "ci-smoke.py",
+      "args": [
+        "--steps",
+        "{tmp}/ci-steps-broken.json"
+      ],
+      "expect": 2,
+      "want": [
+        "步骤清单不可用"
+      ]
+    }
+  ]
+}

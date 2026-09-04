@@ -50,7 +50,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import secrets
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -158,8 +160,63 @@ def read_events(tasks_dir: Path, task_id: str | None = None) -> list[dict]:
     return events
 
 
-def make_event(kind: str, task_id: str, actor: str, **extra) -> dict:
-    ev = {"ts": now_iso(), "event": kind, "task": task_id, "actor": actor or "agent"}
+# --- R-10: trace_id 贯穿（ResourceOS §24.2 trace 全链重建）---------------------
+# 此前 events.jsonl 有事件但无主键，一次任务的事件散在多条记录里，审计只能靠
+# task 字段人工拼 —— 跨任务/跨脚本的链路（workspace 事件、verify 结果引用）更是
+# 无从串起。trace_id 是"一次任务"的最小主键：init 生成 → 写入 task JSON 头 →
+# 每条 transition 事件 → events.jsonl 每行；trace-export --trace 一键重建。
+# ULID 风格（10 字符毫秒时间戳 + 16 字符随机，Crockford base32）—— 时间有序、
+# 可按前缀粗排序，且不依赖 uuid 模块以外的任何东西。
+_CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+TRACE_ID_LEN = 26
+
+
+def new_trace_id() -> str:
+    """ULID 风格 trace_id：时间有序 + 随机，stdlib only。"""
+    n = int(time.time() * 1000)
+    ts_part = []
+    for _ in range(10):
+        ts_part.append(_CROCKFORD[n % 32])
+        n //= 32
+    rnd = "".join(secrets.choice(_CROCKFORD) for _ in range(16))
+    return "".join(reversed(ts_part)) + rnd
+
+
+def task_trace_id(task: dict | None) -> str | None:
+    """取任务的 trace_id；老任务（本字段落地前创建）返回 None，不伪造。"""
+    if not isinstance(task, dict):
+        return None
+    tid = task.get("trace_id")
+    return tid if isinstance(tid, str) and tid else None
+
+
+def events_for_trace(tasks_dir: Path, trace_id: str) -> list[dict]:
+    """按 trace_id 跨任务收事件（events.jsonl 全扫 + 过滤）。"""
+    return [ev for ev in read_events(tasks_dir) if ev.get("trace_id") == trace_id]
+
+
+def tasks_for_trace(tasks_dir: Path, trace_id: str) -> list[str]:
+    """反查带有该 trace_id 的任务文件（任务 JSON 头也写了 trace_id）。"""
+    if not tasks_dir.exists():
+        return []
+    out = []
+    for p in sorted(tasks_dir.glob("*.json")):
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        if isinstance(data, dict) and data.get("trace_id") == trace_id:
+            out.append(p.stem)
+    return out
+
+
+def make_event(kind: str, task_id: str, actor: str, trace_id: str | None = None,
+               **extra) -> dict:
+    ev: dict = {"ts": now_iso(), "event": kind, "task": task_id,
+                "actor": actor or "agent"}
+    # R-10：trace_id 放在 task 之后，保持既有字段顺序（读取端按 key 取值，不受影响）
+    if trace_id:
+        ev["trace_id"] = trace_id
     ev.update(extra)
     return ev
 
@@ -192,10 +249,13 @@ def new_task(task_id: str, title: str, mode: str, bb: dict,
              priority: str = "P2", acceptance: str = "", branch: str = "",
              workspace: str = "", max_repair: int = 3,
              depends_on: list[str] | None = None,
-             done_when: str = "") -> dict:
+             done_when: str = "", trace_id: str | None = None) -> dict:
     ts = now_iso()
     return {
-        "schema": SCHEMA, "task_id": task_id, "title": title, "mode": mode,
+        "schema": SCHEMA, "task_id": task_id,
+        # R-10：一次任务的主键，贯穿 task JSON 头 / transition 事件 / events.jsonl
+        "trace_id": trace_id or new_trace_id(),
+        "title": title, "mode": mode,
         "state": "INIT", "verdict": None,
         "priority": priority, "acceptance_criteria": acceptance,
         # T-08（AgentOS #3）：任务级显式完成条件 + finalize 证据位
@@ -333,6 +393,8 @@ def main() -> int:
     i.add_argument("--done-when", default="",
                    help="structured completion condition (T-08, AgentOS #3) — checked at FINALIZE->DONE")
     i.add_argument("--actor", default="agent", help="actor for the event ledger (T-10)")
+    i.add_argument("--trace-id", default=None,
+                   help="R-10：外部指定 trace_id（不传则自动生成 ULID 风格 id）")
 
     t = sub.add_parser("transition", help="advance state (transition table is data)")
     t.add_argument("--task", required=True)
@@ -373,7 +435,9 @@ def main() -> int:
     h.add_argument("--json", action="store_true")
 
     te = sub.add_parser("trace-export", help="full task JSON (state + history + blackboard)")
-    te.add_argument("--task", required=True)
+    te.add_argument("--task", default=None, help="按任务导出（task JSON + 其事件）")
+    te.add_argument("--trace", default=None,
+                    help="R-10：按 trace_id 跨任务重建全链（events.jsonl 全扫 + 反查带该 id 的任务）")
     te.add_argument("--json", action="store_true")
 
     ep = sub.add_parser("escalation-pack",
@@ -412,13 +476,16 @@ def main() -> int:
                         branch=args.branch, workspace=args.workspace,
                         max_repair=args.max_repair,
                         depends_on=[d.strip() for d in args.depends_on.split(",") if d.strip()],
-                        done_when=args.done_when)
+                        done_when=args.done_when,
+                        trace_id=getattr(args, "trace_id", None))
         save_task(path, task)
         append_event(tasks_dir, make_event("created", args.task, args.actor,
+                                           trace_id=task_trace_id(task),
                                            to="INIT", done_when=args.done_when or None))
         print(json.dumps({"created": args.task, "state": "INIT",
                           "priority": task["priority"], "branch": task["branch"],
                           "workspace": task["workspace"], "done_when": task["done_when"],
+                          "trace_id": task["trace_id"],
                           "path": str(path)},
                          ensure_ascii=False, indent=2))
         return 0
@@ -447,6 +514,7 @@ def main() -> int:
             if seen:
                 if seen.get("to") == nxt:
                     append_event(tasks_dir, make_event("duplicate_ignored", args.task, args.actor,
+                                                       trace_id=task_trace_id(task),
                                                        **{"from": cur, "to": nxt, "verdict": None,
                                                           "reason": "idempotency_key"}))
                     print(json.dumps({"task": args.task, "duplicate": True, "key": idem,
@@ -480,6 +548,7 @@ def main() -> int:
             task["updated_at"] = now_iso()
             save_task(path, task)
             append_event(tasks_dir, make_event("transition_rejected", args.task, args.actor,
+                                               trace_id=task_trace_id(task),
                                                **{"from": cur, "to": nxt, "verdict": None,
                                                   "reason": "loop_guard"}))
             return 2
@@ -525,8 +594,11 @@ def main() -> int:
         task["updated_at"] = now_iso()
         save_task(path, task)
         append_event(tasks_dir, make_event("transition", args.task, args.actor,
+                                           trace_id=task_trace_id(task),
                                            **{"from": cur, "to": nxt, "verdict": args.verdict}))
-        out = {"task": args.task, "from": cur, "to": nxt, "verdict": args.verdict}
+        out = {"task": args.task, "from": cur, "to": nxt, "verdict": args.verdict,
+               # R-10：每次转移都把 trace_id 吐出来，调用方无需回读任务文件即可串联
+               "trace_id": task_trace_id(task)}
         if done_gate.get("applies"):
             out["done_gate"] = done_gate
         if budget["applies"]:
@@ -580,6 +652,7 @@ def main() -> int:
         task["updated_at"] = now_iso()
         save_task(path, task)
         append_event(tasks_dir, make_event("resume", args.task, args.actor,
+                                           trace_id=task_trace_id(task),
                                            **{"from": cur, "to": target, "verdict": None}))
         print(json.dumps({"task": args.task, "from": cur, "to": target,
                           "restored_from_checkpoint": cp, "note": args.note},
@@ -603,6 +676,30 @@ def main() -> int:
         return 0
 
     if args.cmd == "trace-export":
+        # R-10：--trace 按 trace_id 跨任务重建（§24.2）。--task 与 --trace 二选一，
+        # 都不给 = 用法错误 exit 2（不猜调用方意图）。
+        if not args.task and not args.trace:
+            print("[fatal] trace-export requires --task or --trace", file=sys.stderr)
+            return 2
+        if args.trace:
+            tid = args.trace.strip()
+            events = events_for_trace(tasks_dir, tid)
+            task_ids = tasks_for_trace(tasks_dir, tid)
+            if not events and not task_ids:
+                print(f"[fatal] trace_id not found: {tid}", file=sys.stderr)
+                return 2
+            out = {"schema": "trace.v1", "trace_id": tid, "tasks": task_ids,
+                   "event_count": len(events), "events": events}
+            if args.json:
+                print(json.dumps(out, ensure_ascii=False, indent=2))
+            else:
+                print(f"== trace {tid} ==")
+                print(f"  tasks: {', '.join(task_ids) or '-'}")
+                print(f"  events: {len(events)}")
+                for ev in events:
+                    print(f"  - {ev.get('ts')} [{ev.get('event')}] "
+                          f"{ev.get('task')} {ev.get('from')} -> {ev.get('to')}")
+            return 0
         path = task_path(tasks_dir, args.task)
         task = load_task(path)
         if task is None:
@@ -616,6 +713,7 @@ def main() -> int:
             print(json.dumps(out, ensure_ascii=False, indent=2))
         else:
             print(f"== task {args.task} (state={task['state']}) ==")
+            print(f"  trace_id: {task_trace_id(task) or '-'}")
             print(f"  title: {task['title']}  mode: {task['mode']}")
             print(f"  done_when: {task.get('done_when') or '-'}")
             print(f"  blackboard.facts: {json.dumps(task['blackboard']['facts'], ensure_ascii=False)}")
