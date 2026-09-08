@@ -1,0 +1,47 @@
+{
+  "schema": "chaos-scenarios.v1",
+  "note": "chaos.py --scenarios 场景清单。scenarios = 自包含、可直接运行的冒烟场景（无外部依赖，任何机器可复跑）；templates = target 相关故障（corrupt_state / git_conflict / read_only_fs）的模板，须按真实工作区替换 <...> 占位符并挪入 scenarios 后才可运行——占位符路径未校验时直接运行会以 OSError 退出。",
+  "scenarios": [
+    {
+      "name": "smoke-tool-unavailable",
+      "fault": "tool_unavailable",
+      "cmd": ["cmd", "/c", "python", "--version"],
+      "recover_cmd": ["cmd", "/c", "python", "--version"],
+      "comment": "PATH 置空对直接 subprocess 无效（Windows CreateProcess 用父进程 PATH 解析，F-71 会如实标 fault_effective=false）；经 cmd /c 包裹后由 cmd 以自身 env 解析，注入真实生效（找不到 python -> 9009），恢复后 exit 0。POSIX 下直接用 [\"python\", \"--version\"] 即可生效"
+    },
+    {
+      "name": "smoke-timeout",
+      "fault": "timeout",
+      "cmd": ["python", "-c", "import time; time.sleep(2)"],
+      "timeout_ms": 300,
+      "recover_cmd": ["python", "-c", "print('ok')"],
+      "comment": "2s 任务强制 300ms 超时窗口（fault_exit=124；F-72 修复前 300 被当作 300s，故障从不触发）；恢复命令应 exit 0"
+    }
+  ],
+  "templates": [
+    {
+      "name": "tpl-corrupt-state",
+      "fault": "corrupt_state",
+      "target": "<workspace-state-file>",
+      "cmd": ["<command-that-reads-the-state-file>"],
+      "recover_cmd": ["<command-that-verifies-state-restored>"],
+      "comment": "注入：target 被改写为损坏标记，finally 从备份还原；恢复命令须验证内容正确"
+    },
+    {
+      "name": "tpl-git-conflict",
+      "fault": "git_conflict",
+      "target": "<workspace-tracked-file>",
+      "cmd": ["<command-running-under-conflict>"],
+      "recover_cmd": ["<git-checkout-or-manual-resolve>"],
+      "comment": "注入：写入 <<<<<<< HEAD 冲突标记，finally 还原；适合验证 Agent 对冲突的检出与处置"
+    },
+    {
+      "name": "tpl-read-only-fs",
+      "fault": "read_only_fs",
+      "target": "<workspace-dir-or-file>",
+      "cmd": ["<command-that-writes-into-target>"],
+      "recover_cmd": ["<same-write-command>"],
+      "comment": "注入：目标目录 chmod 0o555，finally 还原权限；恢复命令在还原后应成功"
+    }
+  ]
+}

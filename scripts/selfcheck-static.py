@@ -434,6 +434,54 @@ def check_blocking_coverage() -> dict:
     return {"gated_scripts": len(gated), "gaps": gaps}
 
 
+def check_docs() -> dict:
+    """v2.10.13 docs 段：D-01 索引存在性 / D-02 schema 合规（+ id 唯一）。
+
+    为什么只做这两条：selfcheck 是 **tier-0 秒级闸**，且不得依赖 D 盘语料池
+    （跨盘 / CI / fixture 都可能没有）。D-03 漂移 / D-04 卡片 / D-08 来源
+    需要读语料盘，交给 `doc-pipeline.py check`（ci-smoke 第 3 步）。
+
+    部分树（robustness 的 _sdk_tree* 夹具只有 5 个脚本）没有 doc-pipeline.py
+    → 跳过而不是红灯：自检的"完整性"只对**装了该能力的树**成立。
+    """
+    pipe = ROOT / "scripts" / "doc-pipeline.py"
+    if not pipe.exists():
+        notes.append("docs check skipped: doc-pipeline.py absent (partial tree)")
+        return {"skipped": True, "reason": "doc-pipeline.py absent"}
+    p = ROOT / "scripts" / "data" / "doc-index.json"
+    if not p.exists():
+        problems.append(
+            "D-01: scripts/data/doc-index.json missing "
+            "(run: doc-pipeline.py register --scan --init)")
+        return {"skipped": False, "index": str(p), "exists": False, "total_docs": 0}
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (ValueError, OSError) as e:
+        problems.append(f"D-01: doc-index.json unreadable: {e}")
+        return {"skipped": False, "index": str(p), "exists": True, "readable": False}
+    if not isinstance(data, dict) or data.get("schema") != "doc-index.v1":
+        problems.append(f"D-02: doc-index.json schema != doc-index.v1 "
+                        f"(got {data.get('schema') if isinstance(data, dict) else type(data).__name__})")
+        return {"skipped": False, "exists": True, "readable": True, "schema_ok": False}
+    docs = data.get("docs")
+    if not isinstance(docs, list):
+        problems.append("D-02: doc-index.json 'docs' is not a list")
+        return {"skipped": False, "exists": True, "readable": True, "schema_ok": False}
+    req = ["id", "name", "path", "type", "status"]
+    bad = [d.get("id", "?") for d in docs
+           if not isinstance(d, dict) or any(f not in d for f in req)
+           or not isinstance(d.get("tags"), list)]
+    if bad:
+        problems.append(f"D-02: docs missing required fields {req}+tags(list): {bad}")
+    ids = [d.get("id") for d in docs if isinstance(d, dict)]
+    dup = sorted({i for i in ids if ids.count(i) > 1})
+    if dup:
+        problems.append(f"D-05: duplicate doc ids in index: {dup}")
+    return {"skipped": False, "exists": True, "readable": True, "schema_ok": True,
+            "total_docs": len(docs), "corpus_root": data.get("corpus_root"),
+            "invalid": bad, "duplicate_ids": dup}
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description="SDK static structure self-check (frontmatter / refs / scripts / toolstack)")
@@ -480,6 +528,7 @@ def main(argv: list[str] | None = None) -> int:
                                  set(ts_raw.get("sdk_tools_exempt", []))),
         "blocking_coverage": check_blocking_coverage(),
         "toolstack": ts,
+        "docs": check_docs(),
         "skill_size": check_skill_size(args.max_skill_bytes),
         "problems": problems,
         "notes": notes,

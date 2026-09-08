@@ -1,0 +1,42 @@
+{
+  "schema": "acceptance-weights.v1",
+  "note": "A-1（AOS §20.3 Step3）任务类条件权重：质量维几何均值的指数。每行和为 1.0。D5 裁决：先 4 组粗粒度（code/bug_fix/review/documentation），其余回落 default；A-2 有真实分布后再细化到 8 cell。安全与数据丢失维**不在**本表——它们是布尔硬闸（§20.3 Step1）。",
+  "source": "AOS §20.3 task-class-conditioned weight vectors（按 SDK cell 重新标定）",
+  "default": {
+    "correctness": 0.35,
+    "reliability": 0.2,
+    "autonomy": 0.2,
+    "efficiency": 0.1,
+    "maintainability": 0.15
+  },
+  "groups": {
+    "code": {
+      "correctness": 0.35,
+      "reliability": 0.2,
+      "autonomy": 0.2,
+      "efficiency": 0.1,
+      "maintainability": 0.15
+    },
+    "bug_fix": {
+      "correctness": 0.4,
+      "reliability": 0.25,
+      "autonomy": 0.1,
+      "efficiency": 0.1,
+      "maintainability": 0.15
+    },
+    "review": {
+      "correctness": 0.3,
+      "reliability": 0.15,
+      "autonomy": 0.15,
+      "efficiency": 0.1,
+      "maintainability": 0.3
+    },
+    "documentation": {
+      "correctness": 0.2,
+      "reliability": 0.1,
+      "autonomy": 0.1,
+      "efficiency": 0.05,
+      "maintainability": 0.55
+    }
+  }
+}

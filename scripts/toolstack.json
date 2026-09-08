@@ -5,6 +5,7 @@
     "analyze.ci-failure",
     "analyze.error-sig",
     "analyze.mutation",
+    "case.evolve",
     "doc.spec",
     "docs.lookup",
     "gate.action",
@@ -34,12 +35,16 @@
     "task.workspace",
     "tool.probe",
     "tool.register",
+    "verify.acceptance",
+    "verify.chaos",
     "verify.dynamic",
     "verify.golden",
     "verify.static"
   ],
   "last_check": "2026-09-01T23:44:37+08:00",
-  "sdk_tools_exempt": ["_common.py"],
+  "sdk_tools_exempt": [
+    "_common.py"
+  ],
   "local_tools": {
     "open-code-review (ocr)": {
       "cmd": [
@@ -394,6 +399,37 @@
       "fallback": "patch-gate.py",
       "health": "active",
       "last_checked": "2026-09-01T23:44:37+08:00"
+    },
+    "doc-pipeline.py": {
+      "category": "EDIT",
+      "risk_tier": 2,
+      "timeout_ms": 60000,
+      "idempotent": true,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "docs.lookup",
+        "verify.static"
+      ],
+      "fallback": "doc-search.py",
+      "health": "active",
+      "last_checked": "2026-09-06T23:20:00+08:00"
+    },
+    "doc-search.py": {
+      "category": "SEARCH",
+      "risk_tier": 1,
+      "timeout_ms": 30000,
+      "idempotent": true,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "docs.lookup"
+      ],
+      "fallback": null,
+      "health": "active",
+      "last_checked": "2026-09-06T23:20:00+08:00"
     },
     "env-snapshot.py": {
       "category": "OBSERVE",
@@ -750,6 +786,51 @@
       "fallback": null,
       "health": "active",
       "last_checked": "2026-09-01T23:44:37+08:00"
+    },
+    "accept-score.py": {
+      "category": "TEST",
+      "risk_tier": 1,
+      "timeout_ms": 30000,
+      "idempotent": true,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "verify.acceptance"
+      ],
+      "fallback": "ci-smoke.py",
+      "health": "active",
+      "last_checked": "2026-09-07T22:30:00+08:00"
+    },
+    "chaos.py": {
+      "category": "TEST",
+      "risk_tier": 2,
+      "timeout_ms": 120000,
+      "idempotent": false,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "verify.chaos"
+      ],
+      "fallback": "robustness-suite.py",
+      "health": "active",
+      "last_checked": "2026-09-07T22:50:00+08:00"
+    },
+    "case-evolve.py": {
+      "category": "TEST",
+      "risk_tier": 1,
+      "timeout_ms": 30000,
+      "idempotent": false,
+      "cost_estimate": "none",
+      "schema": "sdk-tool.v1",
+      "runtime": "python-stdlib",
+      "capabilities": [
+        "case.evolve"
+      ],
+      "fallback": "case-search.py",
+      "health": "active",
+      "last_checked": "2026-09-07T22:50:00+08:00"
     }
   }
 }

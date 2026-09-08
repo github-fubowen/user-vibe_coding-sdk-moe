@@ -415,6 +415,31 @@
       "want": [
         "typecheck"
       ]
+    },
+    {
+      "name": "accept-score: 报告不可用 → exit 2（A-1 fail-closed）",
+      "script": "accept-score.py",
+      "args": [
+        "--smoke",
+        "{tmp}/nonexistent-smoke.json"
+      ],
+      "expect": 2,
+      "want": [
+        "[fatal]"
+      ]
+    },
+    {
+      "name": "accept-score: --gate 且硬闸未过 → exit 2",
+      "script": "accept-score.py",
+      "args": [
+        "--smoke",
+        "{tmp}/nonexistent-smoke.json",
+        "--gate"
+      ],
+      "expect": 2,
+      "want": [
+        "[fatal]"
+      ]
     }
   ]
 }

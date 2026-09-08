@@ -352,6 +352,63 @@
       "want": [
         "步骤清单不可用"
       ]
+    },
+    {
+      "name": "chaos: list 内置故障类",
+      "script": "chaos.py",
+      "args": [
+        "list"
+      ],
+      "expect": 0,
+      "want": [
+        "tool_unavailable"
+      ]
+    },
+    {
+      "name": "chaos: 未知故障类 → exit 2（A-9 参数闸）",
+      "script": "chaos.py",
+      "args": [
+        "--fault",
+        "nope",
+        "--cmd",
+        "python -V"
+      ],
+      "expect": 2,
+      "want": [
+        "unknown fault"
+      ]
+    },
+    {
+      "name": "case-evolve: promote 不存在用例 → exit 2（A-13）",
+      "script": "case-evolve.py",
+      "args": [
+        "promote",
+        "--id",
+        "nope",
+        "--store",
+        "{tmp}/evolved.json"
+      ],
+      "expect": 2,
+      "want": [
+        "not found"
+      ]
+    },
+    {
+      "name": "case-evolve: add 缺溯源 → exit 2（§27.2）",
+      "script": "case-evolve.py",
+      "args": [
+        "add",
+        "--id",
+        "X-1",
+        "--title",
+        "t",
+        "--store",
+        "{tmp}/evolved.json"
+      ],
+      "expect": 2,
+      "want": [
+        "provenance"
+      ]
     }
   ]
 }

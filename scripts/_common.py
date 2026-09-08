@@ -54,6 +54,8 @@ SCHEMA_IDS = {
     "ci-smoke": "ci-smoke.v1",
     "trace": "trace.v1",                  # R-10 trace-export --trace
     "ci-steps": "ci-steps.v1",            # R-5 步骤清单
+    "doc-index": "doc-index.v1",          # 参考语料池索引（v2.10.13）
+    "doc-index-check": "doc-index-check.v1",  # doc-pipeline check 输出
 }
 
 

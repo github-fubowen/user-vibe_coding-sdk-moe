@@ -45,8 +45,10 @@ or (--compare mode) at least one per-sample REGRESSION.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import random
 import re
 import sys
 import time
@@ -275,6 +277,62 @@ def validate_set(samples: list[dict]) -> tuple[bool, list[str]]:
     return (len(problems) == 0, problems)
 
 
+def bootstrap_ci(values: list[float], seed: int = 1337, b: int = 2000) -> tuple[float, float]:
+    """A-2（AOS §35.3）：非参数 bootstrap 95% CI。返回 (lo, hi)。
+
+    对 (样本) 聚类重抽样 —— 单次试验的每个样本贡献其 trial 均值，避免把同一样本的
+    多次试验当作独立观测（会人为收窄区间）。
+    """
+    if not values:
+        return (0.0, 0.0)
+    if len(values) == 1:
+        return (values[0], values[0])
+    rnd = random.Random(seed)
+    n = len(values)
+    means = []
+    for _ in range(b):
+        s = 0.0
+        for _ in range(n):
+            s += values[rnd.randrange(n)]
+        means.append(s / n)
+    means.sort()
+    lo = means[max(0, int(0.025 * b))]
+    hi = means[min(b - 1, int(0.975 * b))]
+    return (lo, hi)
+
+
+def paired_stats(old: dict, new: dict, eps: float = 0.02,
+                 seed: int = 1337) -> dict:
+    """A-3（AOS §22.2 / §35.3）：配对比较 —— 同样本集、同 seed，用配对 Δ 的
+    bootstrap CI 判定，而不是比较两个独立聚合均值。
+
+    Δ_i = new_ok - old_ok ∈ {-1,0,+1}；只统计两边都出现的样本（配对）。
+    significant_regression := CI 上界 < -eps（即"变差"在统计上站得住）。
+    """
+    def rows_by_id(rep: dict) -> dict:
+        return {str(r.get("id")): r for r in (rep.get("rows") or [])
+                if isinstance(r, dict) and r.get("id") is not None}
+
+    om, nm = rows_by_id(old), rows_by_id(new)
+    matched = sorted(set(om) & set(nm))
+    deltas = [float(bool(nm[i].get("ok"))) - float(bool(om[i].get("ok")))
+              for i in matched]
+    out = {"n_matched": len(matched), "n_old_only": len(set(om) - set(nm)),
+           "n_new_only": len(set(nm) - set(om)), "eps": eps, "seed": seed,
+           "method": "bootstrap-paired-delta"}
+    if not deltas:
+        out.update({"mean_delta": 0.0, "ci95": [0.0, 0.0],
+                    "significant_regression": False, "significant_improvement": False,
+                    "note": "no matched samples — 无法配对，退化为聚合比较"})
+        return out
+    lo, hi = bootstrap_ci(deltas, seed=seed)
+    mean_d = sum(deltas) / len(deltas)
+    out.update({"mean_delta": round(mean_d, 6), "ci95": [round(lo, 6), round(hi, 6)],
+                "significant_regression": bool(hi < -eps),
+                "significant_improvement": bool(lo > eps)})
+    return out
+
+
 def compare_reports(old: dict, new: dict) -> dict:
     """§29 (P3 清偿 v2.10.6): cross-version golden comparison report.
 
@@ -326,6 +384,8 @@ def compare_reports(old: dict, new: dict) -> dict:
             "pass_rate_delta_pp": round((nrate - orate) * 100, 2),
             "old_model": old.get("model"), "new_model": new.get("model"),
             "samples": {"old": len(om), "new": len(nm)},
+            # A-3：配对显著性（CI-aware），替代"看聚合差值 >2%"的朴素判据
+            "paired": paired_stats(old, new),
             "transitions": counts, "entries": entries}
 
 
@@ -340,6 +400,22 @@ def main() -> int:
     ap.add_argument("--model", default="auto", help="model id")
     ap.add_argument("--api-key", default=None, help="Bearer token if required")
     ap.add_argument("--timeout", type=int, default=120)
+    # --- A-2（AOS §35.2 / §20.3 Step4）：重复试验 + bootstrap CI --------------
+    ap.add_argument("--held-out", default=None,
+                    help="A-4：held-out 金标集路径，或 `auto` = ${SDK_HELD_OUT_ROOT}/golden-heldout.v1.json。"
+                         "**缺失/失配 → UNKNOWN，fail-closed exit 2**（D2：不得默认 PASS）")
+    ap.add_argument("--audit-rules", action="store_true",
+                    help="A-4 反作弊：用诱饵响应（空串/反转/通用文本）审计 accept 规则，"
+                         "恒真规则 = 该样本判定形同虚设（F-50 同型）→ 命中即 exit 2")
+    ap.add_argument("--trials", type=int, default=1,
+                    help="每个样本重复试验次数（默认 1 = 旧行为；dev profile 需 ≥3，staging ≥5）")
+    ap.add_argument("--seed", type=int, default=1337, help="bootstrap 随机种子（同 seed 结果可复现）")
+    ap.add_argument("--ci", action="store_true",
+                    help="输出 bootstrap 95%% CI 与 variance_flag（--trials>1 时自动开启）")
+    ap.add_argument("--profile", choices=("dev", "staging"), default=None,
+                    help="按验收契约的 profile 校验试验数；staging 为 binding，欠功效即 exit 2")
+    ap.add_argument("--contract", default=None,
+                    help="验收契约路径（默认 scripts/data/acceptance-contract.v1.json）")
     ap.add_argument("--offline", action="store_true", help="skip LLM calls, judge samples with pre-filled 'response' field")
     ap.add_argument("--baseline", default=None, help="baseline JSON for A/B diff")
     ap.add_argument("--validate-set", action="store_true", help="pre-check accept rules (regex compile) then exit — no LLM calls")
@@ -381,7 +457,15 @@ def main() -> int:
             print(f"pass_rate: {cmp_rep['old_pass_rate']:.1%} -> "
                   f"{cmp_rep['new_pass_rate']:.1%} "
                   f"(delta {cmp_rep['pass_rate_delta_pp']:+.2f}pp)")
-        return 2 if cmp_rep["transitions"]["REGRESSION"] else 0
+            # A-3：配对显著性（CI 而非点估计）
+            p = cmp_rep["paired"]
+            print(f"paired: n={p['n_matched']} mean_delta={p['mean_delta']:+.4f} "
+                  f"95%CI [{p['ci95'][0]:+.4f}, {p['ci95'][1]:+.4f}] "
+                  f"regression={p['significant_regression']} "
+                  f"improvement={p['significant_improvement']}")
+        # A-3：配对显著变差也算回归（不放松原判据，只加严）
+        return 2 if (cmp_rep["transitions"]["REGRESSION"]
+                     or cmp_rep["paired"]["significant_regression"]) else 0
 
     if not args.set:
         print("[fatal] --set is required (or use --compare old.json,new.json)",
@@ -412,40 +496,107 @@ def main() -> int:
         print("[fatal] no LLM URL: set OMNIROUTE_URL env or pass --llm-url", file=sys.stderr)
         return 2
 
-    prices = json.loads(args.prices) if args.prices else {}
-    rows = []
-    for s in samples:
-        t0 = time.monotonic()
-        if args.offline:
-            resp = {"text": s.get("response", ""), "usage": s.get("usage", {}), "error": None}
+    # --- A-4：held-out 金标（库外 + hash 校验 + fail-closed）---
+    held_samples: list[dict] = []
+    held_meta = None
+    if args.held_out:
+        if args.held_out == "auto":
+            root = os.environ.get("SDK_HELD_OUT_ROOT", "")
+            hp = Path(root) / "golden-heldout.v1.json" if root else None
+            if not root or hp is None or not hp.exists():
+                print("[fatal] held-out UNKNOWN: SDK_HELD_OUT_ROOT 未设置或文件缺失 —— "
+                      "验收依据不可得时不得默认 PASS（D2 fail-closed）", file=sys.stderr)
+                return 2
         else:
-            resp = llm_complete(args.llm_url, args.model, s["prompt"], args.timeout, args.api_key)
-        latency_ms = int((time.monotonic() - t0) * 1000)
-        ok, detail = structural_judge(s, resp["text"])
-        err = resp.get("error")
-        if err:
-            ok, detail = False, f"LLM call failed: {err}"
-        usage = resp.get("usage") or {}
-        in_t = usage.get("prompt_tokens") or token_est(s.get("prompt", ""))
-        out_t = usage.get("completion_tokens") or token_est(resp.get("text", ""))
-        # F-01 修复补丁：空响应检测必须用**文本实导**的 token 数。实测 Ollama 在
-        # finish_reason=length 时 usage.completion_tokens 会虚报（如 2048）而
-        # text 实际为空 —— 用 usage 判定会把空响应误判成 quality 能力失败。
-        out_t_text = token_est(resp.get("text", ""))
-        rows.append({
-            "id": s.get("id", "?"), "task_type": s.get("task_type", "?"),
-            "cell": s.get("cell") or s.get("task_type") or "unknown",
-            "ok": ok, "detail": detail, "in_tokens": in_t, "out_tokens": out_t,
-            "out_tokens_text": out_t_text,
-            "response_len": len(resp.get("text", "")),
-            "error": err, "latency_ms": latency_ms,
-            "cost": cost_of(int(in_t) + int(out_t), args.model, prices, args.price_per_1k),
-            "error_class": classify_failure(ok, err, detail, out_t_text,
-                                            args.infra_token_threshold),
-        })
+            hp = Path(args.held_out)
+            if not hp.exists():
+                print(f"[fatal] held-out UNKNOWN: {hp} 缺失（fail-closed）", file=sys.stderr)
+                return 2
+        hs = load_json(hp) or {}
+        held_samples = hs.get("samples") or []
+        h_sha = hashlib.sha256(hp.read_bytes()).hexdigest()
+        held_meta = {"path": str(hp), "sha256": h_sha, "count": len(held_samples)}
+        # 契约登记的 hash 不一致 = 有人换了题（或换了对自己有利的题）
+        cpath = Path(args.contract) if args.contract else (
+            Path(__file__).resolve().parent / "data" / "acceptance-contract.v1.json")
+        try:
+            reg = ((json.loads(cpath.read_text(encoding="utf-8")).get("held_out") or {})
+                   .get("manifest_sha256"))
+        except (ValueError, OSError):
+            reg = None
+        if reg and reg != h_sha:
+            print(f"[fatal] held-out UNKNOWN: sha256 与契约登记不符 "
+                  f"(contract={reg[:12]}… actual={h_sha[:12]}…)", file=sys.stderr)
+            return 2
+        if not held_samples:
+            print("[fatal] held-out UNKNOWN: 集合为空（fail-closed）", file=sys.stderr)
+            return 2
+
+    # --- A-4 反作弊：accept 规则诱饵审计（离线可判定，不依赖 LLM）---
+    if args.audit_rules:
+        decoys = ["", "TODO", "I cannot help with that.",
+                  "好的，以下是结果：\n\n（略）", "x" * 200]
+        weak = []
+        for s in samples + held_samples:
+            for d in decoys:
+                ok, _ = structural_judge(s, d)
+                if ok:
+                    weak.append({"id": s.get("id", "?"), "decoy": d[:24]})
+                    break
+        if weak:
+            print(f"[fail] audit-rules: {len(weak)} 条 accept 规则对诱饵响应恒真 —— "
+                  f"该样本判定形同虚设（F-50 同型）：" +
+                  ", ".join(w["id"] for w in weak[:8]), file=sys.stderr)
+            return 2
+        print("  [audit-rules] OK — 无恒真 accept 规则")
+
+    prices = json.loads(args.prices) if args.prices else {}
+    trials = max(1, int(args.trials))
+    rows = []
+    held_rows: list[dict] = []
+    for s, is_held in ([(x, False) for x in samples] + [(x, True) for x in held_samples]):
+        t_pass = 0
+        first = None
+        for _t in range(trials):
+            t0 = time.monotonic()
+            if args.offline:
+                resp = {"text": s.get("response", ""), "usage": s.get("usage", {}), "error": None}
+            else:
+                resp = llm_complete(args.llm_url, args.model, s["prompt"], args.timeout, args.api_key)
+            latency_ms = int((time.monotonic() - t0) * 1000)
+            ok, detail = structural_judge(s, resp["text"])
+            err = resp.get("error")
+            if err:
+                ok, detail = False, f"LLM call failed: {err}"
+            usage = resp.get("usage") or {}
+            in_t = usage.get("prompt_tokens") or token_est(s.get("prompt", ""))
+            out_t = usage.get("completion_tokens") or token_est(resp.get("text", ""))
+            out_t_text = token_est(resp.get("text", ""))
+            row = {
+                "id": s.get("id", "?"), "task_type": s.get("task_type", "?"),
+                "cell": s.get("cell") or s.get("task_type") or "unknown",
+                "ok": ok, "detail": detail, "in_tokens": in_t, "out_tokens": out_t,
+                "out_tokens_text": out_t_text,
+                "response_len": len(resp.get("text", "")),
+                "error": err, "latency_ms": latency_ms,
+                "cost": cost_of(int(in_t) + int(out_t), args.model, prices, args.price_per_1k),
+                "error_class": classify_failure(ok, err, detail, out_t_text,
+                                                args.infra_token_threshold),
+            }
+            t_pass += 1 if ok else 0
+            if first is None:
+                first = row
+        # 样本级判定 = 多数通过（trials=1 时与旧行为完全一致）
+        first["trials"] = trials
+        first["trials_passed"] = t_pass
+        first["ok_rate"] = round(t_pass / trials, 6)
+        first["ok"] = bool(first["ok_rate"] >= 0.5)
+        (held_rows if is_held else rows).append(first)
 
     passed = sum(1 for r in rows if r["ok"])
-    pass_rate = passed / len(rows) if rows else 0.0
+    held_passed = sum(1 for r in held_rows if r["ok"])
+    # 试验视角的通过率（trials=1 时 == passed/len(rows)）
+    pass_rate = (sum(r["ok_rate"] for r in rows) / len(rows)) if rows else 0.0
     in_sum = sum(r["in_tokens"] for r in rows)
     out_sum = sum(r["out_tokens"] for r in rows)
     eff = (in_sum + out_sum) / passed if passed else float("inf")
@@ -488,8 +639,47 @@ def main() -> int:
         "cost_basis": ("flat" if args.price_per_1k is not None
                        else ("table" if prices else "none")),
         "mean_latency_ms": round(sum(r.get("latency_ms", 0) for r in rows) / len(rows), 1) if rows else 0,
+        "trials": trials, "seed": args.seed,
         "rows": rows,
+        "held_out": ({**held_meta,
+                      "samples": len(held_rows), "passed": held_passed,
+                      "pass_rate": (held_passed / len(held_rows)) if held_rows else None}
+                     if held_meta else None),
     }
+
+    # --- A-2：试验统计（区间而非点，§35.1：单次通过几乎不携带信息）---
+    if trials > 1 or args.ci:
+        lo, hi = bootstrap_ci([r["ok_rate"] for r in rows], seed=args.seed)
+        ci_width_max = 0.15
+        min_trials = None
+        binding = False
+        if args.profile:
+            cpath = Path(args.contract) if args.contract else (
+                Path(__file__).resolve().parent / "data" / "acceptance-contract.v1.json")
+            try:
+                c = json.loads(cpath.read_text(encoding="utf-8"))
+                prof = (c.get("thresholds") or {}).get(args.profile) or {}
+                min_trials = prof.get("min_trials")
+                ci_width_max = prof.get("ci_width_max", 0.15)
+                binding = bool(prof.get("binding"))
+            except (ValueError, OSError):
+                pass
+        report["trial_stats"] = {
+            "trials": trials, "method": "cluster-bootstrap(B=2000)",
+            "mean": round(pass_rate, 6), "ci95": [round(lo, 6), round(hi, 6)],
+            "ci_width": round(hi - lo, 6), "ci_width_max": ci_width_max,
+            "variance_flag": bool((hi - lo) > ci_width_max),
+            "profile": args.profile, "min_trials": min_trials,
+            "underpowered": bool(min_trials and trials < min_trials),
+            "binding": binding,
+        }
+        if not args.json:
+            flag = " ⚠ variance" if report["trial_stats"]["variance_flag"] else ""
+            print(f"\nTrials: {trials}/sample · pass {pass_rate:.1%} "
+                  f"95%CI [{lo:.1%}, {hi:.1%}] (width {hi - lo:.3f}){flag}")
+            if report["trial_stats"]["underpowered"]:
+                print(f"  [warn] underpowered: profile={args.profile} 要求 ≥{min_trials} 次试验，"
+                      f"当前 {trials} —— 不得作为放行依据")
 
     if args.json:
         print(json.dumps(report, ensure_ascii=False, indent=2))
@@ -497,10 +687,17 @@ def main() -> int:
         for r in rows:
             print(f"  {'OK ' if r['ok'] else '!! '} {r['id']:<12} [{r['task_type']:<8}] {r['detail'][:80]}")
         print(f"\nPass rate: {passed}/{len(rows)} = {pass_rate:.1%}")
+        if held_meta:
+            print(f"Held-out: {held_passed}/{len(held_rows)}"
+                  f"  (sha256 {held_meta['sha256'][:12]}…, 库外 {held_meta['path']})")
         print(f"Tokens: in={in_sum} out={out_sum} total={in_sum + out_sum} eff={eff:.0f}/pass")
 
-    failed = len(rows) - passed
+    failed = (len(rows) - passed) + (len(held_rows) - held_passed)
     if baseline_note and baseline_note["drop"] > 0.02:
+        return 2
+    # A-2：binding profile 下欠功效即拒绝（统计欠功效是 AOS §40.1 自述的头号失效模式）
+    ts = report.get("trial_stats") or {}
+    if ts.get("binding") and ts.get("underpowered"):
         return 2
     return 0 if failed == 0 else 2
 

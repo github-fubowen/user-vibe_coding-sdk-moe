@@ -36,6 +36,7 @@ Exit codes: 0 = pass / 1 = blocked (gate failure).
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import os
 import subprocess
@@ -46,6 +47,11 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 # SDK dir = parent of scripts dir; repo-relative prefix is derived at runtime (F2).
 SDK_DIR = SCRIPT_DIR.parent
 DATA_PREFIXES = ("golden-set-", "baseline-")
+# A-14：验收依据文件（改动需显式放行）—— 放宽其中任何一个都能让红灯自证为绿
+ACCEPTANCE_CRITICAL = (
+    "golden-set-*.json", "acceptance-contract.v1.json", "acceptance-weights.v1.json",
+    "ci-steps.json", "mutation-audit.py", "ci-smoke.py", "accept-score.py",
+)
 
 
 def resolve_sdk_relpath(repo_top: str | None) -> str:
@@ -134,7 +140,15 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true", help="print plan and run checks (testing)")
     ap.add_argument("--changed", action="append", default=[], help="simulate staged changed paths")
     ap.add_argument("--new", action="append", default=[], help="simulate staged new paths")
+    ap.add_argument("--allow-integrity", action="store_true",
+                    help="A-14：显式放行「验收依据文件」的改动（golden 集/契约/权重/步骤清单/闸脚本），"
+                         "不放行即拒绝提交 —— 改判定标准必须留痕；"
+                         "真实 hook 模式下用环境变量 SDK_ALLOW_INTEGRITY=1（git 不向 hook 传参，F-74）")
     args = ap.parse_args()
+    # F-74: --allow-integrity 只在手动/dry-run 模式可达（git 不给 pre-commit hook 传参）——
+    # 契约重签等合法改动在真实 hook 下无逃逸通道，只能 --no-verify（违反 §10）。
+    # 补一条环境变量通道：SDK_ALLOW_INTEGRITY=1 git commit ...；默认仍 fail-closed。
+    allow_integrity = args.allow_integrity or os.environ.get("SDK_ALLOW_INTEGRITY") == "1"
     env = sanitize_env()
 
     if args.changed or args.new:
@@ -224,6 +238,29 @@ def main() -> int:
             except (ValueError, json.JSONDecodeError):
                 detail = out.strip()[:200]
             problems.append(f"selfcheck-static blocked: {detail or 'structure drift'}")
+
+    # --- A-14（v2.11.2，AOS §15 工作区完整性）：验收依据文件改动必须显式放行 ---
+    # 这些文件被静默放宽 = 绿灯可以自证（F-50 的上游形态）：golden accept 规则、
+    # 验收契约、权重表、步骤清单、用例声明、变异锚点。改它们不是禁止，而是**必须
+    # 显式 --allow-integrity 并留痕**（与 tier-4 push 门同一哲学：结构性强迫声明）。
+    # 只管 **SDK 自己的**验收依据文件（临时目录里的同名 fixture 不算 —— 否则会误伤
+    # 既有用例，也会把别人的同名文件拖进闸里）
+    hits = [c for c in changed
+            if c.startswith(rel + "/")
+            and any(fnmatch.fnmatch(Path(c).name, pat) for pat in ACCEPTANCE_CRITICAL)]
+    if hits:
+        if allow_integrity:
+            print(f"  [gate] workspace-integrity  ALLOWED({'--allow-integrity' if args.allow_integrity else 'env SDK_ALLOW_INTEGRITY=1'}) "
+                  f"{len(hits)} file(s): " + ", ".join(Path(h).name for h in hits[:5]),
+                  flush=True)
+        else:
+            print("  [gate] workspace-integrity  BLOCKED — 验收依据文件被改动："
+                  + ", ".join(Path(h).name for h in hits[:5])
+                  + "  （确认是有意变更则加 --allow-integrity 重跑，改动随即留痕）",
+                  flush=True)
+            problems.append("workspace-integrity: acceptance-critical files changed "
+                            "without --allow-integrity: "
+                            + ", ".join(Path(h).name for h in hits[:3]))
 
     if args.dry_run:
         print("  (dry-run — no commit affected)", flush=True)

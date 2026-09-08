@@ -1,0 +1,18 @@
+{
+  "schema": "evolved-cases.v1",
+  "cases": [
+    {
+      "id": "F-70",
+      "title": "契约闸误伤保留策略用例",
+      "tags": [
+        "gate",
+        "ci"
+      ],
+      "provenance": "落地报告-SDK-v2.11.0-AOS-P0",
+      "status": "staging",
+      "created_at": "2026-09-07T22:49:24+08:00",
+      "dwell_days": 7,
+      "stable_runs": 0
+    }
+  ]
+}

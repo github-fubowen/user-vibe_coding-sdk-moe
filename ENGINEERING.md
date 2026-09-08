@@ -1,6 +1,6 @@
 # ENGINEERING.md — user-vibe_coding-sdk-moe 工程手册
 
-> v2.10.12 · 2026-09-03 · 与代码库逐项对齐（脚本 docstring / 状态机 / toolstack.json / 门禁实测）
+> v2.11.3 · 2026-09-07 · 与代码库逐项对齐（脚本 docstring / 状态机 / toolstack.json / 门禁实测）
 > 版本戳受 `version-check.py` 版本戳一致性闸校验（T-511/F-60，七戳含本文件头部）：错戳 exit 2，缺戳仅 warning。
 > 定位：本文件是 SDK 的**工程视图**（架构 + 组件 + 数据流 + 门禁 + 操作规程）；协议行为见 SKILL.md（热路径），版本历史见 CHANGELOG.md，架构映射见 ALIGNMENT.md。
 
@@ -53,7 +53,7 @@ SDK 的全部工程资产分为三类（硬约束，任何新增都先归类）�
 | `robustness-suite.py` | 鲁棒性回归套件 | **用例数以套件 `--json` 输出的 `total` 字段为准**（F-64：文档写死数字已失真——v2.10.9 实为 227 而旧文写 190）；exit 0/2；`--only` 子集；`--timing` 慢点画像；`--quick` 跳过两个慢脚本（182s→81s）；夹具全临时目录；**逐版用例增量史见 CHANGELOG（F-65 移交，不再内嵌）**；**v2.10.12 F-59 Phase 1：常量参数用例外置 `scripts/cases/*.json`（五域 manifest，fail-closed loader，selfcheck style-3 合并拦截收集）；临时目录清理改分离进程（沙箱把 TMP 重定向到非默认盘，原生 rmdir 会被过滤驱动间歇阻塞）** |
 | `git-pre-commit.py` | 提交前门禁 | 改 SDK 脚本→robustness `--only`；数据文件→JSON+golden validate；**新文件或文档（v2.10.0 F-41）→privacy**；**任何 SDK 改动（v2.10.2 闸 4）→selfcheck-static（未登记脚本即拒）**；**fail-closed**；sanitize_env 弹出 PYTHONPATH + 5 个 git 内部变量 |
 | `install-hooks.py` | 钩子安装/卸载 | 幂等；SDK_RELPATH 安装时推导（改名跟随，C0-2）；外来钩子需 --force |
-| `ci-smoke.py` | 定时冒烟 | 单命令跑 **version-check（第 0 步，cheapest-first）** + **selfcheck-static（第 1 步，v2.10.1）** + robustness 全量 + golden v2/v3 validate + v3 离线 + privacy；零 LLM 离线；`--json` 时进度行走 stderr（F-45）；`--report` 落盘后同前缀带日期旧报告保留最近 7 份（v2.10.12 F-63，日期收尾才匹配、无日期文件永不触碰） |
+| `ci-smoke.py` | 定时冒烟 | 单命令跑 **version-check（第 0 步，cheapest-first）** + **selfcheck-static（第 1 步，v2.10.1）** + **doc-index-check（第 2 步，v2.10.13，D-01/D-02/D-03/D-04/D-08）** + robustness 全量 + golden v2/v3 validate + v3 离线 + privacy；零 LLM 离线；`--json` 时进度行走 stderr（F-45）；`--report` 落盘后同前缀带日期旧报告保留最近 7 份（v2.10.12 F-63，日期收尾才匹配、无日期文件永不触碰） |
 | `version-check.py`（v2.8.2） | 版本串 + CHANGELOG 顺序闸 | 七处版本串一致（SKILL frontmatter/标题 · README blurb/版本行 · CHANGELOG 首个条目 · ENGINEERING 头 · ALIGNMENT 头；v2.10.11 T-511 由五处扩容）+ 条目严格递减无重复；`--root` 可换文档根；exit 0/2；schema `version-check.v1`（T-16 / F-26） |
 | `patch-gate.py`（v2.10.0） | 补丁规模预算闸 | numstat/diff/stat 输入；files≤5 / lines≤300 / 依赖≤1（kernel §I）；超限 exit 2 → ESCALATED；diff-risk `--verify-confidence` 合成 `repair_confidence`<0.7 → 人工（T-23 / F-29）；**F-53（v2.10.5）**：畸形 numstat 行 → 报行号干净 exit 2（原裸 ValueError traceback） |
 | `action-gate.py`（v2.10.0） | 动作预执行门 | toolstack 存在性/risk_tier/args 校验（AgentOS Top4 + agentic-cicd §3.2 Tool Gateway）；tier≥4 须 --user-approved；idempotent 元数据首个消费方（T-25 / F-38 / F-35）。**v2.10.1 F-42 修正**：查表范围 = `sdk_tools` ∪ `local_tools`（原仅 `local_tools`，22 个自有脚本全被误判 DENY；现 28/28 ALLOW）+ stem 匹配（`diff-risk` ≡ `diff-risk.py`）；`git-push` 以 tier-4 登记 |
@@ -87,6 +87,8 @@ SDK 的全部工程资产分为三类（硬约束，任何新增都先归类）�
 | `ci-fail-analyze.py` | CI 失败分析器 | 日志→diagnostic.v1；**八类正则**（permission/dependency/unit_failure/timeout/assertion/command_missing/install_error/syntax_error）+ generic 兜底；**v2.9.0 T-19 增 origin class**（code/test/dependency/infra/environment/unknown + 日志级信号覆盖）与 `recommended_action`（origin 而非 leaf 决定动作，kernel §H） |
 | `error-sig.py` | 错误签名库 | add/match，Debug L0 确定性首轮 |
 | `case-search.py` | 案例库/记忆层检索 | `--layer` 分层命中（solutions/repo-facts/...） |
+| `doc-pipeline.py`（v2.10.13） | 参考语料池摄入流水线 | `scan`/`register`/`probe`/`abstract`/`index`/`check` 六子命令；`doc-index.v1` schema 双写（SDK 登记副本 + 语料池镜像，原子写）；D-03 漂移（local warn / github fail / 缺盘降级）+ D-04 卡片 + D-05 四级判重（sha256→内容指纹→文件名 0.95→taxonomy）+ D-08 来源合规；hard fail → exit 2；零 LLM、stdlib | 
+| `doc-search.py`（v2.10.13） | 参考语料池检索（L1） | 次线性 tf(1+log) × IDF，title×3/tags×2/body×1；CJK 按 2-gram、Latin 按词；`--section` 返回命中章节 + 片段并按 `--max-tokens`（默认 8000，D-06）截断；索引不可读 → exit 2；**T2 档，不占推理预算** | 
 | `env-snapshot.py` | 环境快照 | PATH 有界，一次成型 |
 
 ### 3.5 计量与 Review（measure/review）

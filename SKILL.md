@@ -1,7 +1,7 @@
 ---
 name: user-vibe_coding-sdk-moe
 description: >
-  MoE-optimized coding skill SDK (v2.10.12). USE when the user starts a coding session,
+  MoE-optimized coding skill SDK (v2.11.3). USE when the user starts a coding session,
   says "start coding" / "coding mode" / "vibe coding" / "开发模式" / "写代码" /
   or asks to begin any write/debug/review/refactor task. Maximizes Mixture-of-Experts
   model output quality via MANDATORY ENGLISH COT (thinking chain), per-task thinking
@@ -10,7 +10,7 @@ description: >
   Route to the right path: Vibe / Engineering / SDD / Debug / Review / Quick-Edit.
 ---
 
-# user-vibe_coding-sdk-moe v2.10.12 — MoE-Optimized Coding SDK
+# user-vibe_coding-sdk-moe v2.11.3 — MoE-Optimized Coding SDK
 
 > **What this is**: A coding SDK tuned for MoE-family models (DeepSeek V4/Qwen3.5-Max/Kimi K2/GLM-4.6/MiniMax M2/Doubao/Hunyuan/Step).
 > **Design basis**: 5 research reports (2026-08): CN MoE architecture survey, MoE capability-maximization handbook, LLM DIY tuning handbook, LLM power-user handbook, GitHub MoE ecosystem survey.
@@ -306,6 +306,7 @@ Probe rules: **once per session via `scripts/probe-tools.py --json`**（ref-19 �
 | 前序结果 / 检索 hits | ≤6K token | 去重 + 只留结论行 |
 
 > **reasoning 硬底线**：输入类预算再紧张也不得挤占输出推理空间 —— 压缩只对上表输入类生效，`max_tokens` 不得因注入而低于任务档位（§2.2）所需；二者冲突时**先砍输入**。
+> **长文档（≥8K token）禁止整份注入**：09-06 对照试验实测全量注入 78.5KB → 质量 0pp 增益、输入 +11.4K tok/轮、cache 命中 43%→23%、路由 exact 0/35。参考语料一律走「索引 → 摘要卡 → 命中章节」三级（`doc-search.py` / `doc-pipeline.py`，细则 ref-26）——**正文永不进稳定前缀**。
 
 ---
 
@@ -314,7 +315,7 @@ Probe rules: **once per session via `scripts/probe-tools.py --json`**（ref-19 �
 - **Golden set**: 20–50 CN-first samples covering QA/code/long-text/extraction/tool-use, each with acceptance points. Full regression on ANY change (prompt/model/params/skill).
 - **Metrics**: pass rate · **token efficiency** (out+think tokens / passed — the number to watch) · think-token ratio (>70% without accuracy gain = overthinking) · **cache hit rate** (<60% = prefix construction broken) · cost/task · version drift (monthly re-run).
 - **Version pinning**: dated IDs in production (`deepseek-v4-pro-0813`), never semantic aliases. A/B on golden set before switching.
-- **全面自检（一个命令）**：`python scripts/ci-smoke.py --json` —— 7 步 cheapest-first：version-check → selfcheck-static（静态结构）→ robustness 全量 → golden v2/v3 validate → v3 离线回归 → privacy；零 LLM，exit 0/2，`--report <file>` 存档。**改了 SDK 任何文件就跑它**（v2.10.1：只看单点绿灯不够——F-42 曾让 22 个自有脚本的动作门失效而全套门禁仍全绿）。
+- **全面自检（一个命令）**：`python scripts/ci-smoke.py --json` —— 8 步 cheapest-first：version-check → selfcheck-static（静态结构）→ doc-index-check（语料索引）→ robustness 全量 → golden v2/v3 validate → v3 离线回归 → privacy；末尾比对**验收契约**（`data/acceptance-contract.v1.json`：闸集/版本/金标集 sha256，失配即 exit 2 —— 改闸不签契约 = 判定不可信，A-5）；零 LLM，exit 0/2，`--report <file>` 存档。**改了 SDK 任何文件就跑它**（v2.10.1：只看单点绿灯不够——F-42 曾让 22 个自有脚本的动作门失效而全套门禁仍全绿）。**验收量化（ref-27）**：`golden-run --trials N --ci`（重复试验 + bootstrap CI，禁止 n=1 当通过）· `accept-score.py`（gated 多维分，硬闸优先 + 缺失维照实缺席，report-only）。
 
 ---
 
@@ -347,6 +348,8 @@ Probe rules: **once per session via `scripts/probe-tools.py --json`**（ref-19 �
 | 23 | `references/23-pipeline-automation.md` | 流水线自动化与门禁（评估报告落地）：pre-commit 门禁（git-pre-commit.py + install-hooks.py）/ ci-smoke 定时冒烟 / 月检+周度调度自动化 / bandit recommend 接线 |
 | 24 | `references/24-gh-security.md` | 远程执行引擎（GH Actions）安全设计（GH 方案 §2/§3/§16，C1-6）：installation token 最小权限表 + GITHUB_TOKEN 优先 + OIDC 指针 + Tool Layer 抽象（Agent 不拼 API） |
 | 25 | `references/25-resourceos.md` | ResourceOS 统一资源操作系统（40 节，指针引用）——**架构对齐参考**而非蓝图：采纳条款索引（能力词表/健康态/依赖图/声誉时间维度/trace 主键）+ 8 项排除清单（向量检索·注册中心 API·Policy Engine 等，依其 §34 规模驱动原则否决）；R-1..R-10 票号与批次（P0 已落地 / P1→v2.15.0 / P2→v2.16.0） |
+| 26 | `references/26-doc-corpus.md` | 参考语料池（`doc-index.v1` / `doc-pipeline.py` / `doc-search.py` / D 系列闸 / 分级加载 L0-L3）——**需要引用长文档时**加载 |
+| 27 | `references/27-acceptance-os.md` | 需要判定"全绿能否算接受" / 失败归哪一类 / 成熟度等级时（AOS 验收体系：语义翻译层 + 13 类失败分类 + L1-L2 自评 + 票 A-0..A-14） |
 
 ---
 

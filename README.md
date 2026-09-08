@@ -1,6 +1,6 @@
 # user-vibe_coding-sdk-moe
 
-> MoE 特化编程技能 SDK（v2.10.12）——为 Mixture-of-Experts 系大模型（DeepSeek V4 / Qwen3.5-Max / Kimi K2 / GLM-4.6 / MiniMax M2 / Doubao / Hunyuan / Step）调优的编码工作流。
+> MoE 特化编程技能 SDK（v2.11.3）——为 Mixture-of-Experts 系大模型（DeepSeek V4 / Qwen3.5-Max / Kimi K2 / GLM-4.6 / MiniMax M2 / Doubao / Hunyuan / Step）调优的编码工作流。
 
 **设计依据**：5 份 CN MoE 调研报告（2026-08）+ 2 份 Coding Agent 架构/技术栈调研（2026-08-30，AgentOS / 主流 Harness 技术栈）。**三大目标，一套协议**：① 最大化输出质量 ② 最小化 token 消耗 ③ 强制英文思维链。
 
@@ -144,6 +144,6 @@ user-vibe_coding-sdk-moe/
 
 ## 📌 版本与许可
 
-- 版本：**v2.10.12**（changelog 见 `CHANGELOG.md`；每次编辑即提交，遵循自版本管理）
+- 版本：**v2.11.3**（changelog 见 `CHANGELOG.md`；每次编辑即提交，遵循自版本管理）
 - ref-10（ARS-Codex）为 **CC BY-NC 4.0** 指针引用（不 vendored），其余内容可自由使用。
 - 依赖：无第三方依赖；Python 环境可选（工具链建议 uv）。

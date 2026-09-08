@@ -24,6 +24,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -110,6 +111,102 @@ def tool_health() -> dict[str, int]:
     return summary
 
 
+# --- A-5: 验收契约（AOS §24 / §4.2，v2.11.0）---------------------------------
+# 闸集 / 版本 / 金标集 hash 必须与契约一致，否则"绿"不可信：改了闸门而不改契约、
+# 或改了金标集而不重签，都视为判定失据 → fail-closed（exit 2）。
+# 与 privacy-scan 不同：契约没有 skip 开关 —— 可跳过扫描，不可跳过"依据什么判定"。
+CONTRACT_FILE = SCRIPT_DIR / "data" / "acceptance-contract.v1.json"
+CHANGELOG = SDK_DIR / "CHANGELOG.md"
+_VER_RE = re.compile(r"^##\s+(v\d+\.\d+\.\d+)", re.M)
+
+
+def _sha256_file(p: Path) -> str:
+    try:
+        return hashlib.sha256(p.read_bytes()).hexdigest()
+    except OSError:
+        return ""
+
+
+def contract_check(executed: list[str], custom_manifest: bool = False,
+                   contract_path: Path | None = None) -> dict:
+    """比对验收契约。返回 {applied, contract_hash, match, problems[]}。永不抛错。
+
+    custom_manifest=True（显式 --steps 指向别处）时**不套用契约**：那是一次临时/局部运行，
+    不是验收声明 —— 否则"跑 1 步看看"也会被判缺失 7 个闸（v2.11.0 实测：F-63 保留策略
+    用例用单步清单跑 ci-smoke，被契约闸误判为 REGRESSION）。原则：契约管**验收运行**，
+    不管临时运行；但临时运行的报告必须写明 `applied=false`，不得冒充满绿验收。
+    """
+    # 显式 --contract：即使清单是自定义的，也是一次验收运行，必须套用契约
+    applied = (not custom_manifest) or (contract_path is not None)
+    out = {"applied": applied, "contract_hash": None, "match": None, "problems": []}
+    cf = contract_path or CONTRACT_FILE
+    if not cf.exists():
+        out["problems"].append(f"missing contract: {cf.name}")
+        out["match"] = False
+        return out
+    try:
+        c = json.loads(cf.read_text(encoding="utf-8"))
+    except (ValueError, OSError) as e:
+        out["problems"].append(f"unreadable contract: {e}")
+        out["match"] = False
+        return out
+
+    out["contract_hash"] = hashlib.sha256(
+        json.dumps(c, sort_keys=True, ensure_ascii=False,
+                   separators=(",", ":")).encode("utf-8")).hexdigest()[:16]
+    if not applied:
+        return out
+    out["match"] = False
+
+    # 0) 步骤清单：默认清单必须与契约登记的一致（改闸不重签 = 判定失据）
+    sm = c.get("steps_manifest") or {}
+    if sm.get("path"):
+        p = SCRIPT_DIR / sm["path"]
+        if not p.exists():
+            out["problems"].append(f"steps manifest missing: {sm['path']}")
+        elif sm.get("sha256") and _sha256_file(p) != sm["sha256"]:
+            out["problems"].append("steps manifest sha256 drift (改闸需重签契约)")
+
+    # 1) 版本：契约声明的 sdk_version 必须等于 CHANGELOG 顶部版本（T-16 同源自洽）
+    top = ""
+    try:
+        m = _VER_RE.search(CHANGELOG.read_text(encoding="utf-8"))
+        top = m.group(1) if m else ""
+    except OSError:
+        pass
+    if c.get("sdk_version") != top:
+        out["problems"].append(f"version drift: contract={c.get('sdk_version')} changelog_top={top or '?'}")
+
+    # 2) 闸集：强制闸必须全部执行；不得出现契约外的闸
+    gates = list(c.get("gate_set") or [])
+    optional = list(c.get("optional_gates") or [])
+    missing = [g for g in gates if g not in executed]
+    extra = [e for e in executed if e not in gates and e not in optional]
+    if missing:
+        out["problems"].append("gate_set missing: " + ", ".join(missing))
+    if extra:
+        out["problems"].append("gate_set unexpected: " + ", ".join(extra))
+
+    # 3) 套件：金标集 sha256 / 样本数漂移（防"放宽 accept 规则后仍自称同一套件"）
+    for name, meta in (c.get("suite_manifest", {}).get("golden_sets") or {}).items():
+        p = SCRIPT_DIR / (meta.get("path") or "")
+        if not p.exists():
+            out["problems"].append(f"suite {name}: file missing ({meta.get('path')})")
+            continue
+        h = _sha256_file(p)
+        if meta.get("sha256") and h != meta["sha256"]:
+            out["problems"].append(f"suite {name}: sha256 drift (contract={str(meta['sha256'])[:12]}… actual={h[:12]}…)")
+        try:
+            n = len(json.loads(p.read_text(encoding="utf-8")).get("samples") or [])
+        except (ValueError, OSError):
+            n = -1
+        if meta.get("count") is not None and n != meta["count"]:
+            out["problems"].append(f"suite {name}: count drift (contract={meta['count']} actual={n})")
+
+    out["match"] = not out["problems"]
+    return out
+
+
 # --- F-63: --report 保留策略（data/ 目录不逐日堆积）---------------------------
 # 只匹配 `<前缀>-YYYY-MM-DD` 结尾的文件名（日期必须收尾，`foo-2026-09-01-extra`
 # 这类不碰）；同前缀视为一族，保留文件名序（即日期序）最后 KEEP 份。
@@ -146,6 +243,9 @@ def main() -> int:
     ap.add_argument("--skip-privacy", action="store_true", help="skip privacy-scan step")
     ap.add_argument("--steps", default=None,
                     help="步骤清单 manifest（默认 scripts/data/ci-steps.json，R-5）")
+    ap.add_argument("--contract", default=None,
+                    help="A-5：显式指定验收契约（显式给出时**即使自定义清单也套用契约**——"
+                         "显式契约 = 这是一次验收运行，不是临时跑跑）")
     args = ap.parse_args()
 
     def echo(msg: str) -> None:
@@ -186,13 +286,27 @@ def main() -> int:
         # progress lines go to stderr, otherwise `ci-smoke --json | jq` breaks.
         echo(f"  [{'OK ' if ok else '!! '}] {name:<22} exit={code} {detail}")
 
-    all_ok = all(r["ok"] for r in results)
+    # A-5：验收契约比对（闸集/版本/套件 hash）—— 失配即 fail-closed
+    acc = contract_check([r["step"] for r in results],
+                         custom_manifest=args.steps is not None,
+                         contract_path=Path(args.contract) if args.contract else None)
+    contract_ok = acc["match"] is not False
+    all_ok = all(r["ok"] for r in results) and contract_ok
     summary = {"schema": "ci-smoke.v1", "time": now_iso(), "all_ok": all_ok, "steps": results,
+               "acceptance": acc,
                # R-4：工具健康概览（schema-4 health 三态汇总）。只读、永不阻塞 ——
                # 探测回写是显式动作，这里只把现状摆到报告里，供下轮决策看。
                "tool_health": tool_health()}
     if summary["tool_health"]:
         echo("  [health] " + " ".join(f"{k}={v}" for k, v in sorted(summary["tool_health"].items())))
+    # 契约行永远打印（绿也要看得见 hash，便于跨机比对"是不是同一套判定依据"）
+    if not acc["applied"]:
+        echo(f"  [-- ] {'acceptance-contract':<22} hash={acc['contract_hash'] or '-'} "
+             f"skipped — 自定义步骤清单，非验收运行（不得据此声明通过）")
+    else:
+        echo(f"  [{'OK ' if contract_ok else '!! '}] {'acceptance-contract':<22} "
+             f"hash={acc['contract_hash'] or '-'} "
+             + ("match" if contract_ok else "DRIFT — " + "; ".join(acc["problems"])[:200]))
 
     if args.report:
         p = Path(args.report)

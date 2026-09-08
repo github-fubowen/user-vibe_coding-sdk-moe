@@ -5,6 +5,324 @@
 
 > 更早条目（v1.x 时代）见 **CHANGELOG-archive.md**（F-62 归档策略：条目 >30 天移入归档）。
 
+## v2.11.3（2026-09-08）
+> **chaos-lite（A-9）缺陷修复 + 遗留清单落盘** —— P2 收尾验证以场景清单实测暴露的三个潜伏缺陷与一个门禁设计缺口；场景清单（遗留表第 3 项）同步落盘。
+
+### 变更
+
+- **F-71 `tool_unavailable` 在 Windows 注入无效**：`CreateProcess` 用**父进程** PATH 解析可执行文件，
+  子 env 置空 PATH 不影响解析（`git`/`python` 照常运行）→ fault_exit=0、RecoveryRate 虚高（vacuous pass，
+  P2 实测的 100% 未发现此问题）。修复：注入后按解析归属探测可达性（直接形式 → Windows 父 PATH /
+  POSIX 子 env；`cmd /c <tool>` 包裹 → cmd 以自身被注入 env 解析），**仍可达 → `fault_effective=false`
+  如实标注**，并从 RecoveryRate 的 evaluated 分母剔除；报告新增 `ineffective_injections` 与 `INEFF` 人类可读标记。
+  Windows 需真实触发时用 `cmd /c <tool>` 包裹。
+- **F-72 `timeout_ms` 单位错位**：字段/CLI 名为毫秒，但直传 `subprocess.run(timeout=)`（秒）——
+  `timeout_ms=300` 实为 300s 窗口，超时故障从不触发；原 `==1` 特判注释写"1ms"实际执行 1s。
+  修复：调用点统一 ms→s 换算（含 `recover_timeout_ms` 与 blind-retry 重复执行），特判删除（1ms 语义自此为真）。
+- **F-73 子进程输出解码崩溃**：`text=True` 用默认 locale 编码读管道，中文 Windows 下 cmd 子进程输出 GBK
+  （如"不是内部或外部命令"）→ reader 线程 `UnicodeDecodeError`、输出丢失。修复：显式
+  `encoding="utf-8", errors="replace"`——tail 可能含替换符但永不崩溃。
+- **F-74 `--allow-integrity` 在真实 hook 模式不可达**：git 不向 pre-commit hook 传参，契约重签等
+  合法改动只能 `--no-verify`（违反 §10 规则 10）或手改 hook。修复：新增环境变量通道
+  `SDK_ALLOW_INTEGRITY=1 git commit`（git 继承环境变量到 hook），默认仍 fail-closed。
+- **新增 `scripts/data/chaos-scenarios.json`**（遗留表"场景清单"项落盘）：2 个自包含冒烟场景
+  （tool-unavailable 走 `cmd /c` 包裹保证 Windows 生效 + timeout 300ms 真超时）+ 3 个 target 相关模板
+  （corrupt_state / git_conflict / read_only_fs，占位符待按工作区替换，勿直接运行）；`chaos.py`
+  用例路径示例同步 `scripts/data/`。
+- **契约重签**：`acceptance-contract.v1.json` 的 `sdk_version` → v2.11.3（版本一致性闸 #1 要求契约与
+  CHANGELOG 顶部同源；本次为 A-14 闸上首个经 `SDK_ALLOW_INTEGRITY=1` 留痕放行的契约改动）。
+- 实测：清单 2/2 生效注入、RecoveryRate 1.0（tool-unavailable fault_exit=1@cmd 层 / timeout fault_exit=124，
+  MTTR 均值 ~0.7s）；robustness --only chaos / git-pre-commit、mutation-audit --dry-run、
+  selfcheck-static、ci-smoke 全绿。
+
+## v2.11.2（2026-09-07）
+> **AOS 验收体系对齐 · P2 收官批次** —— held-out 与反作弊（A-4）· checkpoint 二分（A-7）· chaos-lite（A-9）· AutonomyScore（A-10）· 失败→用例自演化（A-13）· 工作区完整性闸（A-14）。
+> 里程碑：**L2 成熟度的两张缺失门票（隐藏集 + RecoveryRate）补齐**，`accept-score` 的 coverage 由 2/5 升至 4/5。
+
+### 变更
+
+- **A-4 held-out 金标（§10/§34）**：`golden-run --held-out auto|<path>`，库外目录由 `SDK_HELD_OUT_ROOT` 指向
+  （本机 held-out 根目录由 `SDK_HELD_OUT_ROOT` 指向，仓库内**只登记 sha256**（契约 `held_out.manifest_sha256`）。
+  **缺失 / 失配 → UNKNOWN + exit 2（fail-closed，D2）**——验收依据不可得时不得默认 PASS。
+  实测：env 未设 → exit 2；篡改 held-out 文件 → sha256 失配 → exit 2；正常 → 32/32 + held-out 3/3
+- **A-4 反作弊 `--audit-rules`**：用诱饵响应（空串 / 反转 / "TODO" / 通用文本 / 长噪串）审计 accept 规则，
+  命中恒真规则即 exit 2 —— **规则方向写反 / 恒真断言**（F-50 同型）从此有机械检测；对 v3 全集审计通过
+- **A-7 `task-state.py bisect`（§25.4）**：沿 checkpoint 二分定位最早分歧点，谓词外置
+  （`--check "cmd {state}"`，exit 0 = 从此处起仍可能通过）；**非单调时退回线性扫描**并标 `monotonic=false`
+  —— 二分在非单调序列上的答案是错的，不能装作对（§40.2-5）。实测 5 checkpoint（`TTTFF`）→ `diverged_index=3`
+- **A-9 `scripts/chaos.py`（§11/§40.6）**：5 类故障（`tool_unavailable` / `timeout` / `corrupt_state` /
+  `git_conflict` / `read_only_fs`）+ `--recover-cmd` → RecoveryRate / MTTR；`--check-blind-retry` 检测
+  `blind_retry_pattern`（**默认关闭**——只读命令会假阳性）。所有注入在 finally 还原
+- **A-10 `task-state.py autonomy`（§12）**：necessary（tier-4 push/凭据/不可逆）与 avoidable 分解，
+  `autonomy_score` 只扣 avoidable；**report-only，永不入闸**（D3 —— tier-4 人审是 §10 规则 2 的结构性要求）
+- **A-13 `scripts/case-evolve.py`（§27）**：失败 → 回归用例，三道闸 —— 近重复拒收（词集 Jaccard ≥ 0.92）、
+  provenance 强制（可审计"这题为什么存在"）、暂存 dwell 7d + 3 次稳定运行才可晋升。
+  **不做 LLM 合成新题**（§40.1-9 自述的质量陷阱）。种子用例：`F-70 契约闸误伤保留策略用例`
+- **A-14 工作区完整性闸（§15）**：`git-pre-commit` 第 5 闸 —— SDK 内**验收依据文件**（golden 集 / 契约 /
+  权重表 / 步骤清单 / 闸脚本）被改动 → 拒绝提交，须显式 `--allow-integrity` 并留痕。
+  只认 SDK 前缀内的路径（临时目录同名 fixture 不算，否则误伤既有用例）
+- **登记与文档**：toolstack 登记 `chaos.py`(verify.chaos) / `case-evolve.py`(case.evolve)；
+  ref-27 票状态全绿 + §8 P2 纪要；ALIGNMENT P2 行转已落地
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| held-out fail-closed（env 未设 / sha 失配） | 两种情形均 **exit 2** ✅ |
+| held-out 正常路径 | 32/32 + **held-out 3/3**（sha256 `26eb52019110…`）✅ |
+| `--audit-rules`（v3 全集 / 恒真规则夹具） | v3 通过；恒真夹具 **exit 2** ✅ |
+| `bisect`（5 checkpoint TTTFF） | `diverged_index=3 · monotonic=true` ✅ |
+| `chaos`（tool_unavailable + 恢复） | RecoveryRate 100% · MTTR 844ms ✅ |
+| `autonomy`（2 任务夹具） | necessary=1 avoidable=1 · score 0.5 · report-only ✅ |
+| `case-evolve` | add 成功（staging，dwell 6d23h）· promote 未到期 **exit 2** ✅ |
+| pre-commit 第 5 闸 | SDK 内 golden-set 改动被拦；`--allow-integrity` 放行 ✅ |
+| 子集冒烟 | chaos 2/2 · case-evolve 2/2 · golden 15/15 · task-state 40/40 · git-pre-commit 7/7 |
+
+### 遗留
+
+- 权重表细化到 8 cell 待积累真实分布（D5 先 4 组）；`held-out` 真实价值在 online 回归（离线只验管道）
+- `chaos` 场景清单 `data/chaos-scenarios.json` 待按需扩充（当前以单场景 CLI 为主）
+- A-4 的需求改写随机化（`--perturb`）**未落地**：离线模式下判定基于预填 response，改写 prompt 不产生信息；
+  留到有 online 回归常态化时再做
+
+## v2.11.1（2026-09-07）
+> **AOS 验收体系对齐 · P1 批次** —— gated 多维评分 + 重复试验与置信区间 + 配对 A/B + 验收栈 canary + 环境复现契约（票 A-1/A-2/A-3/A-8/A-11）。
+> 里程碑：**从"有没有哪道闸红"升级为"整体几分、哪个维度拖后腿、这个数有多可信"**；同时把"单次通过"正式降级为"未发现回归"。
+
+### 变更
+
+- **`scripts/accept-score.py`（A-1，AOS §20.3）**：两段式评分 —— ① 硬闸布尔优先（ci-smoke 各步 + 契约 match），
+  任一红 → `REJECT` 且 `quality_score=None`（**绝不用高分把安全/正确性买回来**，对应 §20.2 批评点 1）；
+  ② 质量维几何均值 `Correctness^wc × Reliability^wr × Autonomy^wa × Efficiency^we × Maintainability^wm`，
+  权重按 4 组取行（D5：`data/acceptance-weights.v1.json`，code/bug_fix/review/documentation + default）。
+  **缺失维照实缺席**（reliability 待 A-9、autonomy 待 A-10）并在覆盖维上重新归一化 + 报 `coverage`，
+  不用 1.0 假装；默认 report-only，`--gate` 才 exit 2（阻断仍由 ci-smoke 布尔闸负责）
+- **`golden-run --trials N --seed S --ci [--profile]`（A-2，§35.2）**：每样本重复试验，
+  **cluster bootstrap**（B=2000，按样本聚类重抽样，避免把同一样本的多次试验当独立观测）出 95% CI；
+  `variance_flag`（CI 宽 > 0.15）标"不足以判定"；`--profile staging`（binding）欠功效即 **exit 2**
+  —— 统计欠功效是 AOS §40.1 自述的头号失效模式
+- **`golden-run --compare` 配对比较（A-3，§22.2/§35.3）**：新增 `paired{n_matched, mean_delta, ci95,
+  significant_regression, significant_improvement}`，按配对 Δ（new_ok − old_ok）的 bootstrap CI 判定，
+  替代"看聚合差值 >2%"的点估计；**不放松**原逐样本 REGRESSION 判据（两者回答不同问题：
+  逐样本硬信号 vs 套件级统计显著性）。实测：8/32 翻转 → CI [-0.41,-0.13] 判回归；1/32 翻转 →
+  CI [-0.09,0.00] **不**判显著（旧口径会红）
+- **验收栈 canary（A-8，§33 golden invariant）**：robustness 新增 2 条坏产物用例 —— ① 契约失配
+  （真实契约改 `sdk_version` + 显式 `--contract`）→ exit 2；② 植入盘符路径 → privacy 闸拦截。
+  `mutation-audit` 增加 ci-smoke 契约闸锚点（改成恒放行 → canary 变红，**KILLED**）
+- **`ci-smoke --contract`（A-5 补强）**：显式指定契约时**即使自定义步骤清单也套用契约** —— 显式契约 =
+  这是一次验收运行；这让"契约漂移"能被一条秒级用例咬住（此前只有全量运行才能触发）
+- **`env-snapshot --hash / --repro N / --expect-hash`（A-11，§6.2）**：剔除 `time` 的 canonical sha256；
+  同输入 N 次构造不一致 → exit 2；`--expect-hash` 让"环境复现性"成为 CI 可断言的硬条件
+- **登记与文档**：`toolstack` 登记 `accept-score.py`（capability `verify.acceptance` 入词表）；
+  ref-27 §2 票状态更新 + 新增 §7 P1 纪要；SKILL §8 补"验收量化"一句（+~200B）
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| `golden-run --trials 3 --offline`（v3） | pass 100% · CI [1.0, 1.0] · `variance_flag=false` |
+| `--trials 3 --profile staging`（欠功效） | **exit 2** ✅ |
+| 配对比较（8/32 翻转） | `mean_delta=-0.25 CI[-0.41,-0.13] regression=True` ✅ |
+| 配对比较（1/32 翻转） | `CI[-0.09,+0.00] regression=False`（旧 >2% 口径会误判）✅ |
+| `accept-score` 默认档 | 硬闸 9/9 PASS · coverage 2/5 · quality 1.0（缺 reliability/autonomy/efficiency 照实标注） |
+| canary 与变异审计 | robustness `--only ci-smoke` 4/4 · `--only privacy` 6/6 · `mutation-audit --only ci-smoke.py` **KILLED** |
+| `selfcheck-static` | ok（含新增脚本的 toolstack 登记 + 阻塞用例覆盖） |
+| `ci-smoke` 全量复跑（v2.11.1） | **8/8 ALL GREEN** · `acceptance-contract hash=3d5eb73f4935dc8f match` · tool_health active=40 · exit 0 |
+| `mutation-audit --dry-run` | 全部锚点有效（含新增 ci-smoke 契约闸锚点）· Verdict ALL KILLED |
+
+### 遗留（承接 P2/v2.11.2）
+
+- A-4（held-out）与 A-9（RecoveryRate）仍是 **L2 成熟度**的两张缺失门票
+- 权重表细化到 8 cell 待 A-2 积累真实分布后再做（D5 先 4 组）
+- 契约 `weights` 已激活（sha256 `f88f95aab38b0a91…`），改动权重表需重签契约
+
+## v2.11.0（2026-09-07）
+> **AOS 验收体系对齐 · P0 批次** —— 验收契约 + 失败分类 + 成熟度自评 + ref-27 指针（票 A-0/A-5/A-6/A-12）。
+> 里程碑：**SDK 从此有了"机器可读的判定依据"**——改闸门/改金标/改版本而不重签契约，ci-smoke 一律判 DRIFT 并 exit 2。
+
+### 变更
+
+- **`data/acceptance-contract.v1.json`（A-5，AOS §24/§4.2）**：新增验收契约——`gate_set`（7 强制闸）+ `optional_gates`、
+  `thresholds`（dev n=3 / staging n=5，含 `binding` 语义）、`steps_manifest`（默认步骤清单 sha256）、
+  `suite_manifest`（金标集 v2/v3 的 sha256 + 样本数）、`held_out`（D2 裁决：库外 + `on_missing=UNKNOWN`）、
+  `weights`（A-1 落地前的占位）
+- **`ci-smoke` 契约比对（fail-closed）**：新增 `contract_check()` —— ① 步骤清单 sha256（改闸需重签）
+  ② 契约 `sdk_version` 必须等于 CHANGELOG 顶部版本 ③ 强制闸必须全部执行且不得出现契约外闸门
+  ④ 金标集 sha256 / 样本数漂移；任一失配 → `all_ok=false` + exit 2。
+  报告新增 `acceptance:{applied, contract_hash, match, problems[]}`，**绿灯也打印 hash**（跨机可比对
+  "是不是同一套判定依据"）。契约**无 skip 开关**——可跳过扫描，不可跳过"依据什么判定"。
+  **显式 `--steps` 指向自定义清单时不套用契约**（那是临时运行不是验收声明），报告标 `applied=false`
+  并打印"不得据此声明通过" —— v2.11.0 实测：首版无此豁免，F-63 保留策略用例（单步清单）被误判为
+  REGRESSION，属本闸自身的**回归类缺陷**（§5.6 REGRESSION，非 FAILED），已按"契约管验收运行不管临时运行"修正
+- **`references/27-acceptance-os.md`（A-0）**：语义翻译层（AOS 概念 → SDK 对应物，含 Chaos Engine ≠ robustness-suite
+  等三处易误判）、14 票索引、**13 类失败分类映射**（A-6）、**L1-L2 成熟度自评**（A-12）、排除清单、D1-D5 决策锁定
+- **SKILL.md**：§9 引用表加 ref-27 一行；§8 全面自检条目补"末尾比对验收契约，失配即 exit 2"
+- **ALIGNMENT.md**：追加 AOS 吸收映射附录（第 6 份外部规范对齐：处置统计 + 三条语义错位 + A 系列票表 + 批次版本）
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| 契约 fail-closed（精简步骤清单，缺 5 闸 + 版本未 bump） | `contract DRIFT` · 点名 `gate_set missing` 5 项 + `version drift` · **exit 2** ✅ |
+| 回归修复复跑（`robustness --only ci-smoke`） | 3/3（F-63 保留策略 / R-5 空清单 / R-5 断链）✅ |
+| `ci-smoke` 全量复跑 | **8/8 ALL GREEN** · `acceptance-contract hash=4733759867758ea2 match` · exit 0 |
+| `selfcheck-static` | ok（refs 完整、脚本登记一致、无未登记脚本） |
+| `version-check`（T-16） | ok · 七处版本串一致 v2.11.0 · CHANGELOG 严格递减 |
+| SKILL.md 体积 | 37,979B（advisory 告警改动前已存在，非本次引入；增量 ~410B = ref 行 + §8 一句） |
+
+### 决策
+
+- **D1 版本**：本线从 v2.11.0 起算（P0 v2.11.0 / P1 v2.11.1 / P2 v2.11.2）—— ⚠️ 与清偿包 T-501..T-590 原订
+  v2.11.0–v2.13.1 冲突，**P1 开工前须确认其顺延至 v2.12.0+ 或释放号段**，否则本线回退 v2.14.0+
+- **D2–D5**：held-out 库外 + fail-closed UNKNOWN · AutonomyScore report-only · 不引入 hash 链 trace · 权重表先 4 组
+
+### 遗留（承接 P1）
+
+- 契约闸的**变异审计**（mutation-audit 锚点）随 A-8（v2.11.1）落地：本批无廉价 canary 用例
+  （触发 drift 需跑全量 ci-smoke ≈4 分钟），exit 2 路径已由手工验证覆盖；A-8 一并补 `cases/canary.json`
+- 契约 `weights` 仍为占位（A-1 落地后写入 4 组权重 sha256）
+
+## v2.10.16（2026-09-07）
+> **遗留任务清偿批次** —— kept 外置 + 语料池 git 化 + 27 卡三节补写全晋升。
+> SDK 侧索引 119KB → **26KB**；`indexed` **21 → 0**（21 `abstracted` + 6 `absorbed`）。
+
+### 变更
+
+- **`shape.kept` 外置（L2 前置，ref-26 §6-10）**：`sdk_copy()` 剥离 SDK 侧索引中的 kept 明细
+  （119KB → 26,112B，-78%），kept 仅存语料镜像 `<corpus>/index.json`（544 条）；
+  `doc-search merge_kept()` 运行时回填、镜像缺失时 fail-soft 跨盘降级；
+  `probe` 改为仅比对标量 shape 字段（sections/tokens_est/max_heading_level/unsectionable，防"永远 changed"）
+- **章节预算断点修复**：`--section` 打分循环中单节超预算（如 H1 覆盖全文件的 ~87K token 节）
+  由 `break` 改 `continue` —— 此前会放弃全部更小的命中节，返回 0 节
+- **语料池独立 git 仓库**：`${CORPUS_ROOT}`（本机语料池根目录）init（main 分支，仓库级身份
+  `fu268 <fu268@local>`）+ 首次提交：27 份正文（type 子目录）+ 镜像 index.json + 27 张卡片
+- **27 张摘要卡三节补写**：一句话 / 关键条款（≤8 条、§ 引用、每条 ≤2 行）/ 与 SDK 的关系
+  （6 份 absorbed 填 ref·版本·票号·ALIGNMENT 锚点；未吸收注明理由与回查点）；
+  `generated_by` 加注 "agent 补写，待人工复核"；卡片头部 status 同步终态（fail-closed：仅零 TODO 时改写）
+- **状态晋升**：`abstract --all`（无 `--force`）21 份 `indexed → abstracted`，6 份 absorbed 保持
+  —— 全池 0 张骨架卡，五态阶梯进入 "27/27 ≥ abstracted"
+- **book-zh 不入库（决策）**：用户既定 **"en 版本为基准"** —— 中译版与英版语义重复
+  （D-05 指纹级近重复 + 同书双版本 token 翻倍无检索增益）；如需中英对照走检索期翻译，不双份入库
+- **ci-steps.json：robustness-suite 步骤超时 600 → 900s**——沙箱过滤驱动下全套件（~250 子进程）
+  spawn 方差大，600s 在复跑中越界（exit=124）；900s 后 8/8 全绿
+- **隐私闸自捕获 1 例**：CHANGELOG 新条目误写语料池盘符路径 → privacy-scan 拦截
+  （drive-letter）→ 改 `${CORPUS_ROOT}` 占位符后归零——闸本身工作正常
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| `doc-pipeline check --all --json` | 27 份 · problems 0 · warnings 0 · exit 0 · `tier.current=L1` |
+| 状态分布 | `abstracted` 21 + `absorbed` 6 = 27 · 骨架卡 0 |
+| 卡片尺寸闸（D-06 2K） | max ~1,221 tokens（27/27 通过） |
+| `doc-search` 抽验 | "context compression" top-1 = ch02（`abstracted`），kept 经镜像回填正常 |
+| SDK 索引体积 | 26,112 B（`kept_externalized: true`）；镜像 119,200 B（544 kept 条目） |
+| ci-smoke | 8/8（首次运行 7/8：F-63 嵌套 version-check 撞上"版本已 bump、CHANGELOG 未写"的中间态——版本闸 fail-closed 正确生效；CHANGELOG 补齐后复跑全绿） |
+
+## v2.10.15（2026-09-07）
+> **语料池整理批次** —— 分类子目录迁移 + 摘要卡机械富化 + 转义标题修复。
+> 语料 26 → **27 份 / 2,236,177B**；`unsectionable` 文档 **2 → 0**；卡片从"空壳骨架"升级为"可扫读"。
+
+### 变更
+
+- **分类子目录迁移**：14 份平铺正文迁入 `<type>/`（architecture 9 / book 13 / design 1 / guide 3 / survey 1），
+  索引 `path` 同步；`iter_corpus_md` 递归扫描已覆盖新布局，`scan` 零未登记
+- **补登漏登记 1 份**：`coding-agent-os-acceptance-system.md`（134,621B / 165 sections）—— 递归扫描上线后立刻浮出
+- **摘要卡机械富化（零 LLM）**：新增 `首屏要点`（优先取 Summary/摘要 节，否则 H1 后首段）
+  与 `高频术语 Top-8`（Latin 词 + CJK 2-gram，去停用词）；自动节一律标 **未校对**
+- **转义标题修复**：`H_RE` 允许 1–3 个前导反斜杠 —— ChatGPT/网页导出的 `\# 1. 标题` 此前被判为非标题，
+  导致 2 份文档 `sections=0`；修复后恢复 39 / 26 sections，`unsectionable` 归零
+- **`abstract` 状态收敛（fail-closed）**：骨架卡带 TODO 标记 → **不晋升** `abstracted`；
+  人工补完后再跑 `abstract`（不加 `--force`）自动晋升 —— 状态不撒谎
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| `doc-pipeline check --all --json` | 27 份 · problems 0 · warnings 0 · exit 0 · `tier.current=L1` |
+| `doc-pipeline scan` | total 27 · **unregistered 0** |
+| `unsectionable` | 2 → **0**（27 份全部可切章节） |
+| 卡片体积 | 27 张 · max **479 tok** / min 201 tok（D-06 软闸 2K，余量充足） |
+| `selfcheck-static.py` | ok=true · `docs.total_docs=27` · `corpus_root=${SDK_DOCS_ROOT}` |
+| `ci-smoke.py --json` | **8/8 ALL GREEN**（robustness 1.0 · privacy 0 findings） |
+| SKILL.md | 37,591B 未变；`scripts/data/doc-index.json` 102KB → 119KB（kept 452→544） |
+
+### 遗留
+
+1. 27 张卡的「一句话 / 关键条款 / 与 SDK 的关系」仍待人工补写（补完跑 `abstract` 即晋升 `abstracted`）
+2. 首屏要点与高频术语为机械抽取，未校对（已显式标注，不得当已核实结论引用）
+3. 跨 L2（200 份）前须把 `shape.kept` 外置（ref-26 §6-10）
+4. 语料池尚未独立成 git 仓库；中文版 `book-zh/` 未入库
+
+## v2.10.14（2026-09-07）
+> **语料池扩容批次** —— 参考书《AI Agent Book》（`bojieli/ai-agent-book`，Apache-2.0，**英文版为基准**）
+> 13 章入库。语料 13 → **26 份 / 2,101,556B**，跨越 L0→L1 档（设施 `doc-search.py` 已实装，无需新增组件）。
+
+### 变更
+
+- `scripts/doc-pipeline.py`
+  - `iter_corpus_md()` 改**递归** `rglob`：原 `glob("*.md")` 只看顶层，分类子目录一建即全部失明；现排除 `.cards/`、点目录、根 `INDEX.md`（产物不是原料）
+  - `AUTO_TYPE` 增 `book` 类型
+  - `check --all` 输出增 `tier{current, facility}`（规模阶梯可视化；跨档**只提示不自动升级**，ResourceOS §34）
+- `scripts/data/doc-index.json`：13 → 26 条。新增 13 条均为 `origin.kind=github`
+  （repo/commit/url 三件套 + `license=Apache-2.0` + `pointer_only=false`，Apache-2.0 允许 vendored 正文）
+- `references/26-doc-corpus.md`：§1 布局加 `book/<repo>/` 子目录；§5 阶梯更新为**当前 26 / L1**；
+  §6 增坑 6–10（跨语言查询无解 / 整本不可当一份 / 同书各章 tags 必须互斥 / 子目录必须递归 / SDK 索引线性膨胀）；
+  **新增 §7 书籍类语料入库实践**（定版 sha、许可证分流、语种后缀、命名回溯、粒度现实）
+
+### 验证
+
+| 项 | 结果 |
+|---|---|
+| `doc-pipeline check --all --json` | 26 份 · problems 0 · warnings 0 · exit 0 · `tier.current=L1` |
+| D-03 断链演练（临时改名 `chapter2.md`） | exit 2 + `语料缺失`；还原后 exit 0 |
+| 检索抽样（7 条） | 英文主题类 **5/5 top-1**；跨语言类（中文词 vs 英文语料）全库精确串 0 命中 → 非回归，见 ref-26 §6-6 |
+| `selfcheck-static.py` | ok=true · `docs.total_docs=26` · `corpus_root` 仍为占位符 `${SDK_DOCS_ROOT}` |
+| `ci-smoke.py --json` | **8/8 ALL GREEN**（robustness pass_rate=1.0 · privacy clean=true / 0 findings） |
+| SKILL.md 体积 | 37,591B **未变**（语料外置生效；索引 69KB→102KB 落在 `scripts/data/`，不进热路径） |
+
+### 遗留
+
+1. 26 张摘要卡仍是模板骨架（人工补写；LLM 生成须标 `generated_by` 并过人工闸）
+2. 存量 13 份仍平铺在语料根，未迁入 `architecture/ guide/ ...` 子目录（迁须同步改 `path`，待演练窗口）
+3. `shape.kept` 只收 level≤2 → 书籍以 H3/H4 为主，335 heading 只留 111 条，`--section` 回片偏粗；放宽会放大索引（§6-10）
+4. SDK 侧索引 ≈3.9KB/份，L2（200 份）前须把 `kept` 外置（§6-10）
+
+## v2.10.13（2026-09-07）
+> **参考语料池集成批次** —— 《集成方案-SDK参考文档资源池-2026-09-06》P0+P1+P2 一次落地（SDD 路径）。
+> 核心裁决：语料外置、索引内嵌、分级加载；**文档正文永不进上下文**（09-06 对照试验：全量注入 78.5KB → 质量 0pp、输入 +11.4K tok/轮、cache 43%→23%、路由 exact 0/35）。
+
+### 新增
+
+- `scripts/doc-pipeline.py`：`scan`/`register`/`probe`/`abstract`/`index`/`check` 六子命令；`doc-index.v1` 双写（SDK 登记副本 + 语料池镜像，原子写）；D-01..D-08 门禁
+- `scripts/doc-search.py`：L1 检索（次线性 tf × IDF，title×3/tags×2/body×1，CJK 按 2-gram）；`--section` 返回命中章节 + 片段，`--max-tokens`（默认 8000）截断
+- `scripts/data/doc-index.json`：现有语料 **13 份 / 785KB** 回填（6 份标 `absorbed` 并挂 ref / 票号 / ALIGNMENT 锚点）
+- `references/26-doc-corpus.md`（ref-26）：子系统协议 + D 系列闸 + 规模阶梯 L0-L3 + 踩坑清单（指针式，不 vendored 正文）
+- `scripts/cases/docs.json`：6 条声明式用例（含 3 条拦截证明，满足 F-50 blocking-coverage）
+
+### 接线
+
+- `toolstack.json`：sdk_tools 29 → 31（doc-pipeline risk_tier 2 / doc-search risk_tier 1）
+- `ci-steps.json`：新增第 3 步 `doc-index-check`（**8 步**，tier 0，cheapest-first）
+- `selfcheck-static.py`：新增 `docs` 段（D-01 索引存在性 / D-02 schema + 必填字段 + id 唯一）；**无 doc-pipeline.py 的部分树自动跳过**，不误伤夹具
+- `_common.py`：SCHEMA_IDS 增 `doc-index` / `doc-index-check`
+- SKILL.md：§7 长文档禁止整份注入（附试验数据）、§8 改 8 步、§9 增 ref-26 行（37,004B → 37,591B，warn 阈 40KB 内）
+
+### 实测修正（改本子系统前必读 ref-26 §6）
+
+- **D-05 判重改为内容优先**：sha256 精确 → 内容指纹 Jaccard ≥0.7 → 文件名**对称** Jaccard ≥0.95 → taxonomy ≥0.7。原「文件名 overlap/min」对子串恒为 1.0，首次回填误杀 5/13
+- **D-02 必填校验不再用真值判断**：`tags: []` 合法，原写法 13/13 全误报
+- **检索排序改为 tf(1+log) × IDF**：裸词频下抽样 top-1 命中 0/4 → 4/4
+- **`--corpus-root` / `--index` 用 `SUPPRESS` 复刻到子解析器**：方案文档里的「子命令之后」写法原本直接 exit 2
+- **privacy 闸**：新增文件 5 处 drive-letter 路径字面量 → 全部中性化，SDK 侧索引 `corpus_root` 改占位符 `${SDK_DOCS_ROOT}`（真值只留在语料池镜像）
+
+### 验证
+
+- `ci-smoke.py --json` → **8/8 ALL GREEN**（robustness pass_rate=1.0、privacy clean=0 findings）
+- 断链演练（改名一份语料）→ D-03 命中且 exit 2；重复演练（同文档改名再登记）→ D-05 sha256 拦截
+- 新增 13 份语料后 SKILL.md 仅 +587B（证明未进热路径）
+
+
 ## v2.10.12（2026-09-04）
 
 > **评审清偿批次** —— 可维护性/可扩展性增量复审（2026-09-04 报告）P0-P3 逐项落地。

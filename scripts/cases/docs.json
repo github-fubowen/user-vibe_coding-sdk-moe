@@ -1,0 +1,48 @@
+{
+  "schema": "robustness-cases.v1",
+  "comment": "v2.10.13 参考语料池（doc-pipeline / doc-search）用例。声明式登记，加用例=改本文件。args 支持 {tmp} 占位符。索引缺失一律指向 {tmp}/missing.json —— 不依赖真实语料盘（跨盘/CI 也能跑），D-01/D-02 fail-closed 是这两个脚本的拦截证明（F-50 blocking-coverage）。",
+  "cases": [
+    {
+      "name": "doc-pipeline: --help",
+      "script": "doc-pipeline.py",
+      "args": ["--help"],
+      "expect": 0,
+      "want": ["usage"]
+    },
+    {
+      "name": "doc-pipeline: check 索引缺失 → exit 2（D-01 fail-closed）",
+      "script": "doc-pipeline.py",
+      "args": ["check", "--all", "--index", "{tmp}/missing.json"],
+      "expect": 2,
+      "want": ["D-01"]
+    },
+    {
+      "name": "doc-pipeline: probe 索引缺失 → exit 2（D-01）",
+      "script": "doc-pipeline.py",
+      "args": ["probe", "--all", "--index", "{tmp}/missing.json"],
+      "expect": 2,
+      "want": ["index not found"]
+    },
+    {
+      "name": "doc-pipeline: scan 空语料池 → exit 0",
+      "script": "doc-pipeline.py",
+      "args": ["scan", "--corpus-root", "{tmp}", "--index", "{tmp}/missing.json"],
+      "expect": 0,
+      "want": ["total"]
+    },
+    {
+      "name": "doc-search: --help",
+      "script": "doc-search.py",
+      "args": ["--help"],
+      "expect": 0,
+      "want": ["usage"]
+    },
+    {
+      "name": "doc-search: 索引缺失 → exit 2（D-01/D-02 fail-closed）",
+      "script": "doc-search.py",
+      "args": ["resource", "--index", "{tmp}/missing.json"],
+      "expect": 2,
+      "want": ["D-01"]
+    }
+  ]
+}

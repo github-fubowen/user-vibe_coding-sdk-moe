@@ -486,6 +486,30 @@
       "want": [
         "\"retagged_rows\": 1"
       ]
+    },
+    {
+      "name": "env-snapshot: --expect-hash 漂移 → exit 2（A-11 复现性契约）",
+      "script": "env-snapshot.py",
+      "args": [
+        "--expect-hash",
+        "0000000000000000",
+        "--json"
+      ],
+      "expect": 2,
+      "want": [
+        "drift"
+      ]
+    },
+    {
+      "name": "env-snapshot: --hash 输出 env_hash",
+      "script": "env-snapshot.py",
+      "args": [
+        "--hash"
+      ],
+      "expect": 0,
+      "want": [
+        "env_hash"
+      ]
     }
   ]
 }

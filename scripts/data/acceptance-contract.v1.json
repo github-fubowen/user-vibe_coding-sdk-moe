@@ -1,0 +1,75 @@
+{
+  "schema": "acceptance-contract.v1",
+  "note": "AOS §24 / §4.2 验收契约（票 A-5，v2.11.0）。机器可读的『本次验收依据什么判定』：闸集 + 阈值 + 套件 hash + 版本。ci-smoke 每次运行比对，失配即 exit 2（fail-closed）——改闸集/改金标/改版本而不改本文件 = 判定不可信。",
+  "source": "coding-agent-os-acceptance-system.md §24 (Acceptance Contract) / §21.2 (profile thresholds) / §35.2 (trial counts)",
+  "sdk_version": "v2.11.3",
+  "profile_default": "dev",
+  "gate_set": [
+    "version-check",
+    "selfcheck-static",
+    "doc-index-check",
+    "robustness-suite",
+    "golden v2 validate",
+    "golden v3 validate",
+    "golden v3 offline"
+  ],
+  "optional_gates": [
+    "privacy-scan"
+  ],
+  "thresholds": {
+    "dev": {
+      "binding": false,
+      "min_trials": 3,
+      "golden_pass_rate_min": 0.9,
+      "robustness_pass_rate_min": 1.0,
+      "ci_width_max": 0.15
+    },
+    "staging": {
+      "binding": true,
+      "min_trials": 5,
+      "golden_pass_rate_min": 0.9,
+      "robustness_pass_rate_min": 1.0,
+      "ci_width_max": 0.15
+    }
+  },
+  "steps_manifest": {
+    "path": "data/ci-steps.json",
+    "sha256": "b2f1239c1d36efeffd489d6d14f3d4f5219a598726d926c6c04e9664418bc927"
+  },
+  "suite_manifest": {
+    "golden_sets": {
+      "v2": {
+        "path": "data/golden-set-v2.json",
+        "sha256": "076b4cef535cbf5af8bf1c9335698dab7f3f811b6d417275ae11839e4c69c22d",
+        "count": 20
+      },
+      "v3": {
+        "path": "data/golden-set-v3.json",
+        "sha256": "1828106bcd63ae28c1f081ed682d707ef39f1b3c5ca430a2a03c182594896107",
+        "count": 32
+      }
+    }
+  },
+  "held_out": {
+    "enabled": true,
+    "root_env": "SDK_HELD_OUT_ROOT",
+    "path": "golden-heldout.v1.json",
+    "manifest_sha256": "26eb52019110ca38c699e3bb72b39aae0fda13f1504fe377a02127e05ebea282",
+    "count": 3,
+    "on_missing": "UNKNOWN",
+    "note": "A-4（v2.11.2）：库外目录 + 契约内 sha256；缺失/失配一律 UNKNOWN 且 fail-closed（禁止默认 PASS，与 doc 语料线的 fail-soft 降级刻意相反）。离线模式只验证管道；真实价值在 online 回归。"
+  },
+  "weights": {
+    "status": "active",
+    "path": "data/acceptance-weights.v1.json",
+    "sha256": "f88f95aab38b0a91316a3798c4346fce38c63701b6353164c9bbfabdfbc19f16",
+    "groups": [
+      "code",
+      "bug_fix",
+      "review",
+      "documentation"
+    ],
+    "default": "default",
+    "note": "A-1（v2.11.1）落地：4 组粗粒度（D5）；安全/数据丢失维不在此表——它们是布尔硬闸（§20.3 Step1）"
+  }
+}

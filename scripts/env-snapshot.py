@@ -66,20 +66,8 @@ def file_digest(path: Path, n: int = 64) -> str | None:
         return None
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description="Deterministic environment snapshot for Debug")
-    ap.add_argument("--json", action="store_true")
-    ap.add_argument("--cwd", default=".", help="base dir for git state / config files")
-    ap.add_argument("--log", default=None, help="log file to tail (--tail lines)")
-    ap.add_argument("--tail", type=int, default=20, help="log tail lines (bounded, G1)")
-    ap.add_argument("--env", default=None, help="comma-separated env vars (default: SAFE_ENV whitelist)")
-    ap.add_argument("--path-limit", type=int, default=10, help="cap PATH entries in snapshot (G1 bounded output)")
-    ap.add_argument("--configs", default="", help="comma-separated config paths to digest (relative to --cwd)")
-    args = ap.parse_args()
-
-    cwd = Path(args.cwd).resolve()
-    env_names = [e.strip() for e in (args.env or ",".join(SAFE_ENV)).split(",") if e.strip()]
-
+def build_snapshot(a, cwd: Path, env_names: list) -> dict:
+    """构造快照（纯函数化，A-11：--repro N 需要同一输入重复构造）。"""
     env_out = {}
     for k in env_names:
         v = os.environ.get(k)
@@ -87,9 +75,9 @@ def main() -> int:
             continue
         if k == "PATH":
             entries = [e for e in v.split(os.pathsep) if e]
-            truncated = entries[: args.path_limit]
+            truncated = entries[: a.path_limit]
             env_out[k] = {"total": len(entries), "entries": truncated,
-                          "truncated": len(entries) > args.path_limit}
+                          "truncated": len(entries) > a.path_limit}
         else:
             env_out[k] = v
 
@@ -114,20 +102,64 @@ def main() -> int:
         },
     }
 
-    if args.log:
-        log_path = Path(args.log)
+    if a.log:
+        log_path = Path(a.log)
         if log_path.exists():
             lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
-            snap["log"] = {"path": str(log_path), "tail": lines[-args.tail:]}
+            snap["log"] = {"path": str(log_path), "tail": lines[-a.tail:]}
         else:
             snap["log"] = {"path": str(log_path), "tail": [], "note": "not found"}
 
-    if args.configs:
+    if a.configs:
         snap["configs"] = {}
-        for rel in [c.strip() for c in args.configs.split(",") if c.strip()]:
+        for rel in [c.strip() for c in a.configs.split(",") if c.strip()]:
             p = cwd / rel
             snap["configs"][rel] = {"exists": p.exists(),
                                     "sha256_64": file_digest(p) if p.exists() else None}
+    return snap
+
+
+def snapshot_hash(snap: dict) -> str:
+    """A-11：剔除 volatile 字段（时间戳）后的 canonical sha256。"""
+    stable = {k: v for k, v in snap.items() if k not in ("time", "env_hash")}
+    return hashlib.sha256(json.dumps(stable, sort_keys=True, ensure_ascii=False,
+                                     separators=(",", ":"), default=str)
+                          .encode("utf-8")).hexdigest()
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Deterministic environment snapshot for Debug")
+    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--cwd", default=".", help="base dir for git state / config files")
+    ap.add_argument("--log", default=None, help="log file to tail (--tail lines)")
+    ap.add_argument("--tail", type=int, default=20, help="log tail lines (bounded, G1)")
+    ap.add_argument("--env", default=None, help="comma-separated env vars (default: SAFE_ENV whitelist)")
+    ap.add_argument("--path-limit", type=int, default=10, help="cap PATH entries in snapshot (G1 bounded output)")
+    ap.add_argument("--configs", default="", help="comma-separated config paths to digest (relative to --cwd)")
+    # A-11（AOS §6.2 复现性契约）：快照只有"能复现"才有资格作为判定依据。
+    ap.add_argument("--hash", action="store_true",
+                    help="输出 env_hash（剔除 time 后的 canonical sha256）")
+    ap.add_argument("--repro", type=int, default=0, metavar="N",
+                    help="同输入重复构造 N 次并比对 env_hash（默认 0=不校验）；不一致 → exit 2")
+    ap.add_argument("--expect-hash", default=None, metavar="H",
+                    help="期望的 env_hash（可只给前 16 位）；漂移即 exit 2 —— "
+                         "把「环境复现性」变成 CI 可断言的硬条件（AOS §6.2）")
+    args = ap.parse_args()
+
+    cwd = Path(args.cwd).resolve()
+    env_names = [e.strip() for e in (args.env or ",".join(SAFE_ENV)).split(",") if e.strip()]
+
+    snap = build_snapshot(args, cwd, env_names)
+    snap["env_hash"] = snapshot_hash(snap)
+
+    repro = None
+    if args.repro > 0:
+        hashes = [snap["env_hash"]]
+        for _ in range(args.repro - 1):
+            hashes.append(snapshot_hash(build_snapshot(args, cwd, env_names)))
+        repro = {"n": len(hashes), "reproducible": len(set(hashes)) == 1,
+                 "distinct_hashes": sorted(set(hashes))}
+        snap["repro"] = repro
 
     if args.json:
         print(json.dumps(snap, ensure_ascii=False, indent=2))
@@ -142,6 +174,19 @@ def main() -> int:
         if snap.get("configs"):
             for rel, c in snap["configs"].items():
                 print(f"  cfg {rel}: {'sha256=' + c['sha256_64'] if c['exists'] else 'MISSING'}")
+    if args.hash or repro is not None:
+        print(f"  env_hash: {snap['env_hash'][:16]}…"
+              + ("" if repro is None else
+                 f"  repro n={repro['n']} reproducible={repro['reproducible']}"))
+    # 复现性契约：同输入多次构造必须同 hash，否则快照不可作为判定依据（AOS §6.2）
+    if repro is not None and not repro["reproducible"]:
+        return 2
+    if args.expect_hash:
+        want = args.expect_hash.strip().lower()
+        got = snap["env_hash"]
+        if not got.startswith(want):
+            print(f"  [drift] env_hash mismatch: expect {want} actual {got[:16]}…")
+            return 2
     return 0
 
 

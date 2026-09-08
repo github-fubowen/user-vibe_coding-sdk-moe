@@ -62,6 +62,12 @@ MUTATIONS: list[dict] = [
         "desc": "版本串/CHANGELOG 顺序闸恒放行",
     },
     {
+        "script": "ci-smoke.py",
+        "anchor": '    contract_ok = acc["match"] is not False',
+        "replacement": "    contract_ok = True",
+        "desc": "A-5 验收契约闸恒放行（契约失配仍判绿）—— 由 A-8 canary「契约失配 → exit 2」咬住",
+    },
+    {
         "script": "token-meter.py",
         "anchor": "    if budget_block and budget_block[\"exceeded\"]:\n        return 2",
         "replacement": "    if False:\n        return 2",

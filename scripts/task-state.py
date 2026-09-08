@@ -51,7 +51,9 @@ from __future__ import annotations
 import argparse
 import json
 import secrets
+import subprocess
 import sys
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -371,6 +373,139 @@ def validate_transitions(task: dict) -> list[str]:
     return problems
 
 
+def cmd_autonomy(tasks_dir: Path, args) -> int:
+    """A-10（AOS §12）：AutonomyScore —— report-only，绝不做成放行闸。
+
+    关键区分（否则指标会被"永不追问"反向游戏）：
+      necessary = WAITING/ESCALATED 且命中 tier-4 语义（push/凭据/不可逆 —— §10 规则 2
+                  的结构性人审，是**必须**停下来的）
+      avoidable = 其余 WAITING/ESCALATED（本可自己查到/脚本已知答案却去问人）
+    """
+    tasks: list[dict] = []
+    if args.task:
+        t = load_task(task_path(tasks_dir, args.task))
+        if t is None:
+            print(f"[fatal] task not found: {args.task}", file=sys.stderr)
+            return 2
+        tasks = [t]
+    else:
+        if not tasks_dir.exists():
+            print(f"[fatal] tasks dir not found: {tasks_dir}", file=sys.stderr)
+            return 2
+        for p in sorted(tasks_dir.glob("*.json")):
+            t = load_task(p)
+            if t:
+                tasks.append(t)
+
+    HINTS = ("push", "tier-4", "tier4", "credential", "凭据", "secret",
+             "irreversible", "不可逆", "human approval", "人审")
+    total = len(tasks)
+    necessary = avoidable = 0
+    per_task = []
+    for t in tasks:
+        n_i = a_i = 0
+        for e in t.get("history") or []:
+            if e.get("to") not in ("WAITING", "ESCALATED"):
+                continue
+            note = f"{e.get('note') or ''} {e.get('verdict') or ''}".lower()
+            if any(h in note for h in HINTS):
+                necessary += 1
+                n_i += 1
+            else:
+                avoidable += 1
+                a_i += 1
+        per_task.append({"task": t.get("id"), "state": t.get("state"),
+                         "necessary": n_i, "avoidable": a_i})
+    interventions = necessary + avoidable
+    score = (1.0 - (avoidable / total)) if total else None
+    out = {"schema": "autonomy.v1", "tasks": total, "interventions": interventions,
+           "necessary": necessary, "avoidable": avoidable,
+           "blocking_intervention_rate": round(interventions / total, 6) if total else None,
+           "autonomy_score": None if score is None else round(max(0.0, min(1.0, score)), 6),
+           "report_only": True,
+           "note": ("report-only：tier-4 人审是 §10 规则 2 的结构性要求，不计入扣分；"
+                    "本指标只用于观察「可避免干预」是否变多（D3 裁决）"
+                    if total else "no tasks — 无样本，不给分（不猜）"),
+           "per_task": per_task}
+    if args.json:
+        print(json.dumps(out, ensure_ascii=False, indent=2))
+    else:
+        print(f"== autonomy · tasks={total} ==")
+        print(f"  interventions: {interventions} (necessary={necessary} avoidable={avoidable})")
+        print(f"  autonomy_score: {'-' if score is None else f'{score:.4f}'}  (report-only)")
+        print(f"  note: {out['note']}")
+    return 0
+
+
+def cmd_bisect(tasks_dir: Path, args) -> int:
+    """A-7（AOS §25.4）：沿 checkpoint 二分定位"最早不可恢复点"。
+
+    谓词由调用方提供：exit 0 = 从该 checkpoint 起仍可能通过。单调性不成立时
+    退回线性扫描并标注 non_monotonic —— 二分在非单调序列上给出的答案是错的，
+    不能装作是对的（§40.2-5 正是这个工程难题）。
+    """
+    t = load_task(task_path(tasks_dir, args.task))
+    if t is None:
+        print(f"[fatal] task not found: {args.task}", file=sys.stderr)
+        return 2
+    cps = t.get("checkpoints") or []
+    if not cps:
+        print("[fatal] no checkpoints for this task — 无打点可二分", file=sys.stderr)
+        return 2
+
+    def check_cmd(state_path: Path) -> list[str]:
+        """模板 → argv。Windows 下不能用 posix 切分（反斜杠会被当转义吃掉），
+        故 posix=False 保留原样，再剥掉成对引号（支持 `--check "cmd with args"`）。"""
+        try:
+            import shlex
+            toks = shlex.split(args.check, posix=False)
+        except ValueError:
+            toks = args.check.split()
+        out = []
+        for raw in toks:
+            t = raw.replace("{state}", str(state_path))
+            if len(t) >= 2 and t[0] == t[-1] and t[0] in ("'", '"'):
+                t = t[1:-1]
+            out.append(t)
+        return out
+
+    def probe(idx: int) -> bool:
+        with tempfile.TemporaryDirectory() as d:
+            sp = Path(d) / f"cp-{idx}.json"
+            sp.write_text(json.dumps(cps[idx], ensure_ascii=False), encoding="utf-8")
+            try:
+                r = subprocess.run(check_cmd(sp), capture_output=True, text=True, timeout=120)
+                return r.returncode == 0
+            except (OSError, subprocess.TimeoutExpired):
+                return False
+
+    lo, hi = 0, len(cps) - 1
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if probe(mid):
+            lo = mid + 1
+        else:
+            hi = mid
+    seq = [probe(i) for i in range(len(cps))]
+    first_false = next((i for i, v in enumerate(seq) if not v), None)
+    # 单调 = 首个 False 之后不再出现 True
+    monotonic = first_false is None or not any(seq[first_false:])
+    idx = lo if monotonic else first_false
+    out = {"schema": "bisect.v1", "task": args.task, "checkpoints": len(cps),
+           "diverged_index": idx, "diverged_checkpoint": cps[idx] if idx is not None else None,
+           "sequence": "".join("T" if v else "F" for v in seq), "monotonic": monotonic,
+           "note": ("二分有效（单调）" if monotonic else
+                    "非单调：二分结果不可信，已退回线性扫描取首个不可恢复点")}
+    if args.json:
+        print(json.dumps(out, ensure_ascii=False, indent=2))
+    else:
+        print(f"== bisect · task={args.task} · checkpoints={len(cps)} ==")
+        print(f"  sequence: {out['sequence']}")
+        print(f"  diverged_index: {idx}   monotonic={monotonic}")
+        print(f"  note: {out['note']}")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Task state machine persistence (ref-20)")
     ap.add_argument("--tasks-dir", default=".workbuddy/tasks", help="task store dir (default: ./.workbuddy/tasks)")
@@ -450,6 +585,15 @@ def main() -> int:
     ep.add_argument("--max-diff-lines", type=int, default=100)
     ep.add_argument("--json", action="store_true")
 
+    au = sub.add_parser("autonomy", help="A-10：自主性评分（report-only，区分必要/可避免干预）")
+    au.add_argument("--task", default=None, help="单任务；不给则统计整个 --tasks-dir")
+    au.add_argument("--json", action="store_true")
+    bs = sub.add_parser("bisect", help="A-7：沿 checkpoint 二分定位最早分歧点（AOS §25.4）")
+    bs.add_argument("--task", required=True)
+    bs.add_argument("--check", required=True,
+                    help='谓词命令模板，{state} 会被替换为该 checkpoint 状态的临时 JSON 路径；'
+                         'exit 0 = "从这里起仍可能通过"')
+    bs.add_argument("--json", action="store_true")
     v = sub.add_parser("validate", help="schema + transition-chain validation")
     v.add_argument("--task", required=True)
 
@@ -674,6 +818,12 @@ def main() -> int:
                 print(f"  {e['ts'][:19]}  {str(e['from']):<10} -> {e['to']:<10} "
                       f"v={e['verdict'] or '-'}  {e['note'][:60]}")
         return 0
+
+    if args.cmd == "autonomy":
+        return cmd_autonomy(tasks_dir, args)
+
+    if args.cmd == "bisect":
+        return cmd_bisect(tasks_dir, args)
 
     if args.cmd == "trace-export":
         # R-10：--trace 按 trace_id 跨任务重建（§24.2）。--task 与 --trace 二选一，

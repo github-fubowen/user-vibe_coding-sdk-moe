@@ -756,6 +756,42 @@ def build_cases(tmp: Path, only: str | None = None) -> list[dict]:
         "print('oldest_gone=%s' % ('ci-steps-retention-check-2026-08-01.json' not in left))\n"
         "print('new_present=%s' % ('ci-steps-retention-check-2099-01-01.json' in left))\n",
         encoding="utf-8")
+    # --- v2.11.1 A-8 canary #1：验收契约失配必须 exit 2（AOS §33 golden invariant）---
+    # 用**真实契约**改一个字段（sdk_version）造漂移 + 单步清单（快），显式 --contract
+    # 让契约在非默认清单下也生效。坏产物必须被闸拦下，否则"绿"不可信。
+    (tmp / "contract-drift-fixture.py").write_text(
+        "import json, subprocess, sys\n"
+        "from pathlib import Path\n"
+        "d = Path(sys.argv[1]); sdk = Path(sys.argv[2])\n"
+        "src = sdk / 'data' / 'acceptance-contract.v1.json'\n"
+        "c = json.loads(src.read_text(encoding='utf-8'))\n"
+        "c['sdk_version'] = 'v0.0.1'\n"
+        "cp = d / 'drifted-contract.json'\n"
+        "cp.write_text(json.dumps(c, ensure_ascii=False), encoding='utf-8')\n"
+        "mp = d / 'drift-steps.json'\n"
+        "mp.write_text(json.dumps({'steps': [{'name': 'version-check',\n"
+        "                                     'script': 'version-check.py'}]}), encoding='utf-8')\n"
+        "r = subprocess.run([sys.executable, str(sdk / 'ci-smoke.py'), '--steps', str(mp),\n"
+        "                    '--contract', str(cp), '--skip-privacy', '--json'],\n"
+        "                   capture_output=True, text=True)\n"
+        "out = r.stdout + r.stderr\n"
+        "print('exit=%d' % r.returncode)\n"
+        "print('drift_detected=%s' % ('DRIFT' in out))\n",
+        encoding="utf-8")
+    # --- v2.11.1 A-8 canary #2：植入盘符路径的坏产物必须被隐私闸拦下 ---
+    (tmp / "privacy-canary-fixture.py").write_text(
+        "import json, subprocess, sys\n"
+        "from pathlib import Path\n"
+        "d = Path(sys.argv[1]); sdk = Path(sys.argv[2])\n"
+        "bad = d / 'leak'; bad.mkdir(exist_ok=True)\n"
+        "(bad / 'note.md').write_text('key at C:\\\\Users\\\\someone\\\\.ssh\\\\id_rsa\\n',\n"
+        "                             encoding='utf-8')\n"
+        "r = subprocess.run([sys.executable, str(sdk / 'privacy-scan.py'), str(bad), '--json'],\n"
+        "                   capture_output=True, text=True)\n"
+        "out = r.stdout + r.stderr\n"
+        "print('exit=%d' % r.returncode)\n"
+        "print('blocked=%s' % (r.returncode == 2 and '\"clean\": false' in out))\n",
+        encoding="utf-8")
 
     # v2.10.8 fixtures（R-3 schema-4）：能力词表/健康态/fallback 三项的拦截与向后兼容。
     # 与 _sdk_tree 同构，但 sdk_tools 条目内容可注入，用于造非法 schema-4 数据。
@@ -1152,6 +1188,18 @@ def build_cases(tmp: Path, only: str | None = None) -> list[dict]:
          "script": "ci-smoke.py", "expect": 0,
          "cmd": [PY, str(tmp / "retention-fixture.py"), str(tmp), str(SCRIPT_DIR)],
          "want": ("exit=0", "left=7", "oldest_gone=True", "new_present=True")},
+        # --- v2.11.1: A-8 canary（AOS §33 golden invariant）---
+        # 坏产物必须触发对应硬闸：① 契约失配 → ci-smoke exit 2；② 植入盘符路径
+        # → privacy-scan exit 2 且 findings>0。二者被 mutation-audit 反向利用：
+        # 把闸改成恒放行后这两条必须变红，否则该闸无有效约束。
+        {"name": "canary: 验收契约失配 → exit 2（A-5 fail-closed）",
+         "script": "ci-smoke.py", "expect": 0,
+         "cmd": [PY, str(tmp / "contract-drift-fixture.py"), str(tmp), str(SCRIPT_DIR)],
+         "want": ("exit=2", "drift_detected=True")},
+        {"name": "canary: 植入盘符路径 → 隐私闸拦截（exit 2 + clean=false）",
+         "script": "privacy-scan.py", "expect": 0,
+         "cmd": [PY, str(tmp / "privacy-canary-fixture.py"), str(tmp), str(SCRIPT_DIR)],
+         "want": ("exit=2", "blocked=True")},
         # --- v2.10.12: F-59 Phase 1 manifest loader（契约测试，不递归）---
         # script 挂 robustness-suite.py：--only robustness-suite 可选中。
         # 断言：坏 manifest fail-closed（SystemExit 2）+ 好 manifest 字段契约
