@@ -1,7 +1,7 @@
 # ALIGNMENT — Coding Agent OS → SDK 落地映射总表
 
 > 吸收对象：`coding-agent-os-architecture.md`（29 节，5 支柱 / 12 组件）
-> 吸收对象本体：`user-vibe_coding-sdk-moe`（v2.10.12）
+> 吸收对象本体：`user-vibe_coding-sdk-moe`（v2.11.3）
 > 本戳受 `version-check.py` 版本戳一致性闸校验（T-511/F-60，七戳含本文件头部）：错戳 exit 2，缺戳仅 warning。
 > 三分类：**协议**（doc，判断纪律）· **脚本**（deterministic，零 LLM）· **排除**（指针引用，不落地）
 > 逐节映射如下；实施细节见各 ref 与 SKILL.md。
@@ -267,3 +267,57 @@
 > 故 **P0（纯文档）+ P1（数据字段 / 脚本能力，无行为破坏）两轮均按 §10 规则 8 豁免边界只做 patch 递增**
 > （v2.10.6 → v2.10.7 → v2.10.8），不占用中间号段；**v2.14.0 留给 P2**，待清偿包 v2.13.1 收官后启用。
 > R-2（= F-61）已并入清偿包 Epic E，本线只贡献规范引用（§12.1 尺寸预算依据）与验收口径，不动工。
+
+## coding-agent-os-acceptance-system.md（AOS）吸收映射（v2.11.0 补记，A-0）
+
+> 第 6 份外部规范对齐。来源 41 节；**定位为"验收方法论参考"，非待实现平台**。
+> 详细计划：`升级计划-SDK-AOS验收体系对齐-2026-09-07.md`；正文映射与分类法：`references/27-acceptance-os.md`。
+
+**处置统计**：吸收（含裁剪）19 节 · 已吸收/已符合 9 节 · 部分吸收 6 节 · 排除 7 节 · 参考 4 节。
+
+### 方法论先决：语义翻译层
+
+AOS 评测"Agent OS"，SDK 评测"驱动 Agent 的协议 + 脚本"。直接对标会全盘误判，故先建翻译层
+（完整表见 ref-27 §1）。三条最容易误判的：
+
+| 错位 | 说明 |
+|---|---|
+| Chaos Engine ≠ `robustness-suite` | 后者测**脚本自身容错**，不是"Agent 遇故障后的恢复质量"；RecoveryRate 至今无度量 → A-9 |
+| `hidden_tests` ≠ golden 集 | golden 全量公开且与被测对象同仓同权，可自证式通过 → A-4 |
+| Semantic Oracle 缺失 = 优势 | SDK 主动用结构化判定（ref-05 §3），**天然免疫 §40.1-3 的 judge 漂移** |
+
+### 差距与票号（A 系列）
+
+| 票 | AOS 源 | 内容 | 批次/版本 |
+|---|---|---|---|
+| A-0 | — | 本附录 + ref-27 + SKILL §9 指针 | P0 / v2.11.0 |
+| A-1 | §20.3 §21.3 | gated 多维评分（硬闸布尔优先 → 质量维几何均值 × cell 权重 → CI） | P1 / v2.11.1 |
+| A-2 | §35.2 §20.3 | 重复试验 + bootstrap CI + profile 试验数（dev 3 / staging 5） | P1 |
+| A-3 | §22.2 §35.3 | 配对 A/B（同样本同 seed）+ CI 不重叠判据 | P1 |
+| A-4 | §10 §34 | held-out 金标外置 + accept 规则变异 + 需求改写随机化 | P2 / v2.11.2 |
+| A-5 | §24 §4.2 | 验收契约 + `ci-smoke` contract_hash，失配 exit 2 | P0 / v2.11.0 |
+| A-6 | §25.1 | 13 类失败分类 → SDK 信号映射 | P0 |
+| A-7 | §25.4 | `task-state.py bisect`（最早分歧点二分） | P2 |
+| A-8 | §33 §34 | 验收栈 canary（坏产物必须触发对应闸） | P1 |
+| A-9 | §11 §40.6 | chaos-lite 5 类故障 → RecoveryRate/MTTR/blind_retry | P2 |
+| A-10 | §12 | AutonomyScore（区分必要 vs 可避免干预），report-only | P2 |
+| A-11 | §6.2 | env-snapshot 复现性契约（--hash / --repro N） | P1 |
+| A-12 | §36 | 成熟度自评（裁剪到 L1-L2） | P0 |
+| A-13 | §27 | 失败 → 回归用例（provenance + dwell 7 天） | P2 |
+| A-14 | §15 | 工作区完整性闸（路径白名单）入 pre-commit | P2 |
+
+### 排除（与 ResourceOS 线的排除理由同构：规模驱动，非偏好驱动）
+
+沙箱集群/IAM 分离 · ClickHouse/Kafka 事件仓 · LLM-judge 集成与校准 · 多代理评测 ·
+CI-CD 真实部署评测 · LOC 分层（100K–10M）· hash-chained trace · Production profile（n=10×1000+）· FDR 校正。
+
+### 批次与版本（D1 裁决）
+
+| 批次 | 票 | 版本 | 状态 |
+|---|---|---|---|
+| P0 | A-0 · A-5 · A-6 · A-12 | **v2.11.0** | ✅ 已落地（2026-09-07） |
+| P1 | A-1 · A-2 · A-3 · A-8 · A-11 | v2.11.1 | ✅ 已落地（2026-09-07） |
+| P2 | A-4 · A-7 · A-9 · A-10 · A-13 · A-14 | v2.11.2 | ✅ 已落地（2026-09-07） |
+
+> **号段冲突提示**：v2.11.0–v2.13.1 原被 `sdd-sdk-improve-v2.11` 清偿包（T-501..T-590）预订。
+> 用户 D1 裁决本线从 v2.11.0 起算，**P1 开工前须确认清偿包顺延至 v2.12.0+ 或释放号段**；否则回退 v2.14.0+。
