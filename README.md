@@ -142,6 +142,17 @@ user-vibe_coding-sdk-moe/
     └── 24-gh-security.md           # 远程执行引擎安全设计（installation token 最小权限，ref-24）
 ```
 
+## 📚 参考资料语料池（Reference Corpus）
+
+> **语料外置**：文档正文永不在 SDK 提示前缀内，按 4 级渐进加载（元数据 → 摘要卡 ≤2K → 命中章节 ≤8K → 全文禁止）。
+> 本仓 [`corpus/`](./corpus/INDEX.md) 为发布镜像（2026-09-08 快照）；权威编辑源在本地 `SDK_DOCS_ROOT`，由 `scripts/doc-pipeline.py` 维护（scan/register/probe/abstract/index/check，D-01..D-08 闸）。
+
+- **29 份文档**：`architecture/`（含 coding-agent-os 系列、AOS 验收体系、Agent Doctor）· `design/`（agentic-cicd）· `guide/`（GitHub Actions CICD）· `survey/`（主流 Agent 技术栈）· `book/ai-agent-book-en/`（10 章，Apache-2.0，来源 bojieli/ai-agent-book）
+- **29 张摘要卡**（`corpus/.cards/`）：首屏要点 + 高频术语 + 一句话 + 章节地图 + 关键条款 + 与 SDK 的关系（自动节标「未校对」）
+- **双事实源索引**：`corpus/index.json`（机器）+ `corpus/INDEX.md`（人读）
+- 检索：`python scripts/doc-search.py "resource capability registry" --top-k 3 --section`（L1 tf-idf，stdlib）
+- 吸收记录：`ALIGNMENT.md`（6 份外部规范对齐，29 节吸收 + 排除总表）
+
 ## 📌 版本与许可
 
 - 版本：**v2.11.3**（changelog 见 `CHANGELOG.md`；每次编辑即提交，遵循自版本管理）
