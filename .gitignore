@@ -1,0 +1,5 @@
+# SDK 级忽略（面向目标目录 D:\TEST 与 GitHub 面——skills 根 .gitignore 不随同步面走）
+__pycache__/
+*.pyc
+# 机器本地 bandit 学习数据（F7：运行态，不入库）
+scripts/data/router-stats.db*
