@@ -1,8 +1,8 @@
 {
   "schema": "doc-index.v1",
-  "generated_at": "2026-09-07T17:31:08+08:00",
+  "generated_at": "2026-09-08T15:02:28+08:00",
   "corpus_root": "${SDK_DOCS_ROOT}",
-  "total_docs": 27,
+  "total_docs": 29,
   "docs": [
     {
       "id": "d-agent-doctor-architecture",
@@ -844,6 +844,70 @@
       "absorbed": null,
       "card": ".cards/d-coding-agent-os-acceptance-system.card.md",
       "last_checked": "2026-09-07"
+    },
+    {
+      "id": "d-coding-agent-os-dr-architecture",
+      "name": "coding-agent-os-dr-architecture",
+      "path": "architecture/coding-agent-os-dr-architecture.md",
+      "type": "architecture",
+      "tags": [
+        "coding-agent-os",
+        "dr",
+        "fault-tolerance"
+      ],
+      "origin": {
+        "kind": "local",
+        "repo": null,
+        "commit": null,
+        "url": null,
+        "license": null,
+        "pointer_only": false,
+        "sha256": "559c0579f01dd3d25e7314736b078ff8bf8c3950d815d08422fb73aa104b12ac",
+        "bytes": 128031,
+        "fetched_at": "2026-09-08"
+      },
+      "shape": {
+        "sections": 49,
+        "tokens_est": 19997,
+        "max_heading_level": 1,
+        "unsectionable": false
+      },
+      "status": "indexed",
+      "absorbed": null,
+      "card": ".cards/d-coding-agent-os-dr-architecture.card.md",
+      "last_checked": "2026-09-08"
+    },
+    {
+      "id": "d-ucsa-architecture",
+      "name": "ucsa-architecture",
+      "path": "architecture/ucsa-architecture.md",
+      "type": "architecture",
+      "tags": [
+        "ucsa",
+        "architecture",
+        "substrate"
+      ],
+      "origin": {
+        "kind": "local",
+        "repo": null,
+        "commit": null,
+        "url": null,
+        "license": null,
+        "pointer_only": false,
+        "sha256": "1352b9e10d992e4098b19e1d3cac3b7077ca141ee3a61fa2caabc44d8fd69c25",
+        "bytes": 61747,
+        "fetched_at": "2026-09-08"
+      },
+      "shape": {
+        "sections": 39,
+        "tokens_est": 9123,
+        "max_heading_level": 1,
+        "unsectionable": false
+      },
+      "status": "indexed",
+      "absorbed": null,
+      "card": ".cards/d-ucsa-architecture.card.md",
+      "last_checked": "2026-09-08"
     }
   ],
   "kept_externalized": true
